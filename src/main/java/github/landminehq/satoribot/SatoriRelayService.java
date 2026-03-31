@@ -131,7 +131,11 @@ final class SatoriRelayService {
         try {
             endpoint = buildMessageCreateUri();
         } catch (IllegalArgumentException ex) {
-            SatoriBot.LOGGER.error("Invalid Satori websocket url in config: {}", Config.satoriWsUrl(), ex);
+            SatoriBot.LOGGER.error(
+                    "Invalid Satori configuration. satoriUrl={}",
+                    Config.satoriUrl(),
+                    ex
+            );
             return;
         }
 
@@ -140,6 +144,7 @@ final class SatoriRelayService {
         payload.addProperty("content", SatoriText.escapePlainText(String.join("\n", batch)));
 
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder(endpoint)
+                .version(HttpClient.Version.HTTP_1_1)
                 .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
                 .header("Satori-Platform", this.loginPlatform)
@@ -163,7 +168,12 @@ final class SatoriRelayService {
                         return;
                     }
 
-                    SatoriBot.LOGGER.error("Satori message.create failed with status {}: {}", status, response.body());
+                    SatoriBot.LOGGER.error(
+                            "Satori message.create failed. endpoint={}, status={}, body={}",
+                            endpoint,
+                            status,
+                            response.body()
+                    );
                     if (status >= 500 || status == 429) {
                         requeue(batch);
                     }
@@ -190,7 +200,7 @@ final class SatoriRelayService {
     private boolean canSendHttpMessages() {
         return this.running
                 && !Config.groupId().isEmpty()
-                && !Config.satoriWsUrl().isEmpty()
+                && !Config.satoriUrl().isEmpty()
                 && this.loginPlatform != null
                 && !this.loginPlatform.isBlank()
                 && this.selfUserId != null
@@ -204,9 +214,9 @@ final class SatoriRelayService {
 
         URI wsUri;
         try {
-            wsUri = URI.create(normalizeWsUrl(Config.satoriWsUrl()));
+            wsUri = URI.create(normalizeWsUrl(Config.satoriUrl()));
         } catch (IllegalArgumentException ex) {
-            SatoriBot.LOGGER.error("Invalid Satori websocket url in config: {}", Config.satoriWsUrl(), ex);
+            SatoriBot.LOGGER.error("Invalid Satori url in config: {}", Config.satoriUrl(), ex);
             scheduleReconnect();
             return;
         }
@@ -366,7 +376,30 @@ final class SatoriRelayService {
     }
 
     private URI buildMessageCreateUri() {
-        URI wsUri = URI.create(normalizeWsUrl(Config.satoriWsUrl()));
+        URI apiBaseUri = resolveApiBaseUri();
+        String path = apiBaseUri.getPath() == null ? "" : apiBaseUri.getPath();
+        if (path.isEmpty()) {
+            path = "/v1";
+        }
+        path = path.replaceAll("/+$", "") + "/message.create";
+
+        try {
+            return new URI(
+                    apiBaseUri.getScheme(),
+                    apiBaseUri.getUserInfo(),
+                    apiBaseUri.getHost(),
+                    apiBaseUri.getPort(),
+                    path,
+                    null,
+                    null
+            );
+        } catch (URISyntaxException ex) {
+            throw new IllegalArgumentException("Unable to derive Satori HTTP API endpoint.", ex);
+        }
+    }
+
+    private URI resolveApiBaseUri() {
+        URI wsUri = URI.create(normalizeWsUrl(Config.satoriUrl()));
         String httpScheme = "wss".equalsIgnoreCase(wsUri.getScheme()) ? "https" : "http";
         String path = wsUri.getPath() == null ? "" : wsUri.getPath();
         if (path.endsWith("/events")) {
@@ -375,30 +408,26 @@ final class SatoriRelayService {
         if (path.isEmpty()) {
             path = "/v1";
         }
-        if (path.endsWith("/")) {
-            path = path.substring(0, path.length() - 1);
-        }
-        path = path + "/message.create";
 
         try {
             return new URI(httpScheme, wsUri.getUserInfo(), wsUri.getHost(), wsUri.getPort(), path, null, null);
         } catch (URISyntaxException ex) {
-            throw new IllegalArgumentException("Unable to derive Satori HTTP API endpoint.", ex);
+            throw new IllegalArgumentException("Unable to derive Satori HTTP API base endpoint.", ex);
         }
     }
 
     private String normalizeWsUrl(String rawUrl) {
         if (rawUrl == null || rawUrl.isBlank()) {
-            throw new IllegalArgumentException("Satori websocket url is blank.");
+            throw new IllegalArgumentException("Satori url is blank.");
         }
 
         URI uri = URI.create(rawUrl.trim());
         String scheme = uri.getScheme();
         if (!"ws".equalsIgnoreCase(scheme) && !"wss".equalsIgnoreCase(scheme)) {
-            throw new IllegalArgumentException("Satori websocket url must use ws:// or wss://.");
+            throw new IllegalArgumentException("Satori url must use ws:// or wss://.");
         }
         if (uri.getHost() == null || uri.getHost().isBlank()) {
-            throw new IllegalArgumentException("Satori websocket url is missing a host.");
+            throw new IllegalArgumentException("Satori url is missing a host.");
         }
 
         String path = uri.getPath();
@@ -415,7 +444,7 @@ final class SatoriRelayService {
         try {
             return new URI(scheme, uri.getUserInfo(), uri.getHost(), uri.getPort(), path, uri.getQuery(), uri.getFragment()).toString();
         } catch (URISyntaxException ex) {
-            throw new IllegalArgumentException("Invalid Satori websocket url.", ex);
+            throw new IllegalArgumentException("Invalid Satori url.", ex);
         }
     }
 

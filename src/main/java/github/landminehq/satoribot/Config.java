@@ -17,9 +17,9 @@ public final class Config {
             .comment("Satori bearer token used for websocket IDENTIFY and HTTP Authorization.")
             .define("satoriToken", "");
 
-    public static final ModConfigSpec.ConfigValue<String> SATORI_WS_URL = BUILDER
-            .comment("Satori websocket address. Accepts ws(s)://host/v1/events or a ws(s)://host/v1 base URL.")
-            .define("satoriWsUrl", "ws://127.0.0.1:5600/v1/events");
+    public static final ModConfigSpec.ConfigValue<String> SATORI_URL = BUILDER
+            .comment("Satori base URL. Accepts ws(s)://host/v1/events or ws(s)://host/v1 and derives HTTP API automatically.")
+            .define("satoriUrl", "ws://127.0.0.1:5600/v1/events");
 
     static final ModConfigSpec SPEC = BUILDER.build();
 
@@ -38,7 +38,7 @@ public final class Config {
         return SATORI_TOKEN.get().trim();
     }
 
-    public static String satoriWsUrl() {
-        return SATORI_WS_URL.get().trim();
+    public static String satoriUrl() {
+        return SATORI_URL.get().trim();
     }
 }

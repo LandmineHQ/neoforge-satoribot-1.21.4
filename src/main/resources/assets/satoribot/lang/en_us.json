@@ -5,5 +5,5 @@
   "satoribot.configuration.groupId": "Target Group ID",
   "satoribot.configuration.mergeWindowSeconds": "Merge Window Seconds",
   "satoribot.configuration.satoriToken": "Satori Token",
-  "satoribot.configuration.satoriWsUrl": "Satori WS URL"
+  "satoribot.configuration.satoriUrl": "Satori URL"
 }
