@@ -68,7 +68,7 @@ final class SatoriText {
             case "audio" -> " [语音] ";
             case "video" -> " [视频] ";
             case "file" -> " [文件] ";
-            case "emoji" -> describeEmojiTag(rawTag);
+            case "emoji", "face" -> describeEmojiTag(rawTag);
             case "a" -> describeLinkTag(rawTag);
             case "at" -> describeAtTag(rawTag);
             case "sharp" -> describeSharpTag(rawTag);
@@ -77,7 +77,7 @@ final class SatoriText {
             case "button" -> describeButtonTag(rawTag);
             case "br", "p", "message" -> "\n";
             case "b", "strong", "i", "em", "u", "ins", "s", "del", "spl", "code", "sup", "sub" -> "";
-            default -> "";
+            default -> describeUnknownTag(tagName, rawTag);
         };
     }
 
@@ -128,6 +128,13 @@ final class SatoriText {
         }
 
         return " [表情] ";
+    }
+
+    private static String describeUnknownTag(String tagName, String rawTag) {
+        if (rawTag.endsWith("/>")) {
+            return " [" + tagName + "] ";
+        }
+        return "";
     }
 
     private static String describeSharpTag(String rawTag) {
