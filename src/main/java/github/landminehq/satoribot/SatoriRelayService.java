@@ -52,6 +52,7 @@ final class SatoriRelayService {
     private volatile String selfUserId;
     private volatile ScheduledFuture<?> pingFuture;
     private volatile ScheduledFuture<?> reconnectFuture;
+    private long lastOutboundSentAtMillis;
     private ScheduledFuture<?> flushFuture;
 
     public synchronized void start(MinecraftServer server) {
@@ -75,6 +76,7 @@ final class SatoriRelayService {
             cancelFuture(this.flushFuture);
             this.flushFuture = null;
             this.outboundBuffer.clear();
+            this.lastOutboundSentAtMillis = 0L;
         }
 
         WebSocket currentSocket = this.webSocket;
@@ -97,17 +99,31 @@ final class SatoriRelayService {
             return;
         }
 
-        String configuredPrefix = Config.prefix();
-        String fullMessage = configuredPrefix == null || configuredPrefix.isEmpty()
-                ? cleanUser + ": " + cleanMessage
-                : configuredPrefix + cleanUser + ": " + cleanMessage;
+        String fullMessage = formatOutboundMinecraftMessage(cleanUser, cleanMessage);
+        List<String> immediateBatch = null;
+        long now = System.currentTimeMillis();
+        long mergeWindowMillis = TimeUnit.SECONDS.toMillis(Config.mergeWindowSeconds());
 
         synchronized (this.bufferLock) {
-            this.outboundBuffer.add(fullMessage);
-            if (this.flushFuture == null || this.flushFuture.isDone()) {
-                this.flushFuture = this.scheduler.schedule(this::flushBufferedMessages, Config.mergeWindowSeconds(), TimeUnit.SECONDS);
+            if (!this.outboundBuffer.isEmpty()) {
+                this.outboundBuffer.add(fullMessage);
+                scheduleBufferedFlushLocked(now, mergeWindowMillis);
+                return;
             }
+
+            boolean withinMergeWindow = this.lastOutboundSentAtMillis > 0L
+                    && now - this.lastOutboundSentAtMillis < mergeWindowMillis;
+            if (withinMergeWindow) {
+                this.outboundBuffer.add(fullMessage);
+                scheduleBufferedFlushLocked(now, mergeWindowMillis);
+                return;
+            }
+
+            this.lastOutboundSentAtMillis = now;
+            immediateBatch = List.of(fullMessage);
         }
+
+        sendMergedMinecraftMessages(Objects.requireNonNull(immediateBatch));
     }
 
     private void flushBufferedMessages() {
@@ -119,6 +135,7 @@ final class SatoriRelayService {
             }
             batch = List.copyOf(this.outboundBuffer);
             this.outboundBuffer.clear();
+            this.lastOutboundSentAtMillis = System.currentTimeMillis();
         }
 
         sendMergedMinecraftMessages(batch);
@@ -197,10 +214,33 @@ final class SatoriRelayService {
             combined.addAll(this.outboundBuffer);
             this.outboundBuffer.clear();
             this.outboundBuffer.addAll(combined);
-            if (this.flushFuture == null || this.flushFuture.isDone()) {
-                this.flushFuture = this.scheduler.schedule(this::flushBufferedMessages, Config.mergeWindowSeconds(), TimeUnit.SECONDS);
+            scheduleBufferedFlushLocked(System.currentTimeMillis(), TimeUnit.SECONDS.toMillis(Config.mergeWindowSeconds()));
+        }
+    }
+
+    private void scheduleBufferedFlushLocked(long now, long mergeWindowMillis) {
+        if (this.flushFuture != null && !this.flushFuture.isDone()) {
+            return;
+        }
+
+        long dueAt = this.lastOutboundSentAtMillis > 0L
+                ? this.lastOutboundSentAtMillis + mergeWindowMillis
+                : now + mergeWindowMillis;
+        long delayMillis = Math.max(0L, dueAt - now);
+        this.flushFuture = this.scheduler.schedule(this::flushBufferedMessages, delayMillis, TimeUnit.MILLISECONDS);
+    }
+
+    private String formatOutboundMinecraftMessage(String username, String message) {
+        String prefix = Config.prefix();
+        StringBuilder builder = new StringBuilder();
+        if (prefix != null && !prefix.isEmpty()) {
+            builder.append(prefix);
+            if (!Character.isWhitespace(prefix.charAt(prefix.length() - 1))) {
+                builder.append(' ');
             }
         }
+        builder.append('<').append(username).append('>').append(' ').append(message);
+        return builder.toString();
     }
 
     private boolean canSendHttpMessages() {
@@ -386,7 +426,7 @@ final class SatoriRelayService {
                                 .withColor(ChatFormatting.AQUA)
                                 .withHoverEvent(Objects.requireNonNull(hoverEvent)))
                 ))
-                .append(Objects.requireNonNull(Component.literal(">: ").withStyle(ChatFormatting.GRAY)))
+                .append(Objects.requireNonNull(Component.literal("> ").withStyle(ChatFormatting.GRAY)))
                 .append(Objects.requireNonNull(Component.literal(safeMessage).withStyle(ChatFormatting.WHITE)));
     }
 
