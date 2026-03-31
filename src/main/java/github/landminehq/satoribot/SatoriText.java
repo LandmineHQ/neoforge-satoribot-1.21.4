@@ -68,6 +68,7 @@ final class SatoriText {
             case "audio" -> " [语音] ";
             case "video" -> " [视频] ";
             case "file" -> " [文件] ";
+            case "emoji" -> describeEmojiTag(rawTag);
             case "a" -> describeLinkTag(rawTag);
             case "at" -> describeAtTag(rawTag);
             case "sharp" -> describeSharpTag(rawTag);
@@ -113,6 +114,20 @@ final class SatoriText {
         }
 
         return " [提及] ";
+    }
+
+    private static String describeEmojiTag(String rawTag) {
+        String name = getAttribute(rawTag, "name");
+        if (!name.isBlank()) {
+            return " [表情:" + name + "] ";
+        }
+
+        String id = getAttribute(rawTag, "id");
+        if (!id.isBlank()) {
+            return " [表情:" + id + "] ";
+        }
+
+        return " [表情] ";
     }
 
     private static String describeSharpTag(String rawTag) {
