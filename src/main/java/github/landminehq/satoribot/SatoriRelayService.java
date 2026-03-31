@@ -346,6 +346,7 @@ final class SatoriRelayService {
             return;
         }
 
+        JsonObject member = getAsObject(body, "member");
         JsonObject user = getAsObject(body, "user");
         JsonObject message = getAsObject(body, "message");
         if (user == null && message != null) {
@@ -363,7 +364,12 @@ final class SatoriRelayService {
             return;
         }
 
-        String displayName = firstNonBlank(getAsString(user, "nick"), getAsString(user, "name"), userId);
+        String displayName = firstNonBlank(
+                member == null ? "" : getAsString(member, "nick"),
+                getAsString(user, "nick"),
+                getAsString(user, "name"),
+                userId
+        );
         String plainText = SatoriText.toPlainText(getAsString(message, "content"));
         if (plainText.isEmpty()) {
             return;
