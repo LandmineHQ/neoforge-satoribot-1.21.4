@@ -1,0 +1,63 @@
+name: Reusable Build
+
+on:
+  workflow_call:
+    inputs:
+      upload_artifact:
+        description: Whether to upload built jars as an artifact.
+        required: false
+        type: boolean
+        default: false
+      artifact_name:
+        description: Artifact name when upload_artifact is true.
+        required: false
+        type: string
+        default: build-jars
+      fetch_depth:
+        description: checkout fetch-depth.
+        required: false
+        type: number
+        default: 1
+      fetch_tags:
+        description: Whether checkout should fetch tags.
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ inputs.fetch_depth }}
+          fetch-tags: ${{ inputs.fetch_tags }}
+
+      - name: Setup JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew build --no-daemon
+
+      - name: Upload build jars
+        if: ${{ inputs.upload_artifact }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          if-no-files-found: error
+          path: |
+            build/libs/*.jar
+            !build/libs/*-sources.jar
+            !build/libs/*-javadoc.jar
+            !build/libs/*-dev*.jar
+
