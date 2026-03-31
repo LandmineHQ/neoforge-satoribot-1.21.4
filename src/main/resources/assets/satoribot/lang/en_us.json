@@ -1,0 +1,13 @@
+{
+  "itemGroup.satoribot": "Example Mod Tab",
+  "block.satoribot.example_block": "Example Block",
+  "item.satoribot.example_item": "Example Item",
+
+  "satoribot.configuration.title": "SatoriBot Configs",
+  "satoribot.configuration.section.satoribot.common.toml": "SatoriBot Configs",
+  "satoribot.configuration.section.satoribot.common.toml.title": "SatoriBot Configs",
+  "satoribot.configuration.items": "Item List",
+  "satoribot.configuration.logDirtBlock": "Log Dirt Block",
+  "satoribot.configuration.magicNumberIntroduction": "Magic Number Text",
+  "satoribot.configuration.magicNumber": "Magic Number"
+}
