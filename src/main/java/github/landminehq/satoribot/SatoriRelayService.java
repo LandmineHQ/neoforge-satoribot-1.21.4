@@ -24,6 +24,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 
@@ -96,8 +97,13 @@ final class SatoriRelayService {
             return;
         }
 
+        String configuredPrefix = Config.prefix();
+        String fullMessage = configuredPrefix == null || configuredPrefix.isEmpty()
+                ? cleanUser + ": " + cleanMessage
+                : configuredPrefix + cleanUser + ": " + cleanMessage;
+
         synchronized (this.bufferLock) {
-            this.outboundBuffer.add(cleanUser + ": " + cleanMessage);
+            this.outboundBuffer.add(fullMessage);
             if (this.flushFuture == null || this.flushFuture.isDone()) {
                 this.flushFuture = this.scheduler.schedule(this::flushBufferedMessages, Config.mergeWindowSeconds(), TimeUnit.SECONDS);
             }
@@ -366,12 +372,21 @@ final class SatoriRelayService {
         String safeDisplayName = Objects.requireNonNull(displayName);
         String safeUserId = Objects.requireNonNull(userId);
         String safeMessage = Objects.requireNonNull(message);
+        String sender = safeDisplayName + "(" + safeUserId + ")";
+        String hoverText = "群" + Config.groupId();
+        HoverEvent hoverEvent = new HoverEvent(
+                Objects.requireNonNull(HoverEvent.Action.SHOW_TEXT),
+                Objects.requireNonNull(Component.literal(hoverText))
+        );
 
         return Objects.requireNonNull(Component.empty())
-                .append(Objects.requireNonNull(Component.literal(safeDisplayName).withStyle(ChatFormatting.AQUA)))
-                .append(Objects.requireNonNull(Component.literal("(").withStyle(ChatFormatting.DARK_GRAY)))
-                .append(Objects.requireNonNull(Component.literal(safeUserId).withStyle(ChatFormatting.GRAY)))
-                .append(Objects.requireNonNull(Component.literal("): ").withStyle(ChatFormatting.DARK_GRAY)))
+                .append(Objects.requireNonNull(Component.literal("<").withStyle(ChatFormatting.GRAY)))
+                .append(Objects.requireNonNull(
+                        Component.literal(sender).withStyle(style -> style
+                                .withColor(ChatFormatting.AQUA)
+                                .withHoverEvent(Objects.requireNonNull(hoverEvent)))
+                ))
+                .append(Objects.requireNonNull(Component.literal(">: ").withStyle(ChatFormatting.GRAY)))
                 .append(Objects.requireNonNull(Component.literal(safeMessage).withStyle(ChatFormatting.WHITE)));
     }
 
