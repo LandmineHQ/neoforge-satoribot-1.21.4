@@ -226,6 +226,8 @@ final class SatoriRelayService {
 
                     int status = response.statusCode();
                     if (status / 100 == 2) {
+                        SatoriBot.LOGGER.debug("Forwarded Minecraft chat to Satori. groupId={}, status={}", groupId,
+                                status);
                         return DeliveryStatus.SUCCESS;
                     }
 
@@ -294,8 +296,9 @@ final class SatoriRelayService {
     }
 
     private boolean validateRequiredConfig() {
+        List<String> configuredGroupIds = Config.groupIds();
         boolean valid = true;
-        if (Config.groupIds().isEmpty()) {
+        if (configuredGroupIds.isEmpty()) {
             SatoriBot.LOGGER
                     .error("Satori relay disabled: config groupIds is empty. Please configure at least one group id.");
             valid = false;
@@ -307,8 +310,11 @@ final class SatoriRelayService {
         }
         if (!valid) {
             SatoriBot.LOGGER.error("Satori relay startup aborted due to invalid required configuration.");
+            return false;
         }
-        return valid;
+        SatoriBot.LOGGER.info("Satori relay enabled. groupIds={}, satoriUrl={}", configuredGroupIds,
+                Config.satoriUrl());
+        return true;
     }
 
     private synchronized void connectWebSocket() {
@@ -400,28 +406,35 @@ final class SatoriRelayService {
         JsonObject guild = getAsObject(body, "guild");
         String channelId = channel == null ? "" : getAsString(channel, "id");
         String guildId = guild == null ? "" : getAsString(guild, "id");
-        String matchedGroupId = "";
-        if (!channelId.isEmpty() && configuredGroupIds.contains(channelId)) {
-            matchedGroupId = channelId;
-        } else if (!guildId.isEmpty() && configuredGroupIds.contains(guildId)) {
-            matchedGroupId = guildId;
-        }
+        String matchedGroupId = findMatchedGroupId(configuredGroupIds, channelId, guildId);
         if (matchedGroupId.isEmpty()) {
+            SatoriBot.LOGGER.debug(
+                    "Ignoring Satori message-created outside configured groups. channelId={}, guildId={}, configuredGroupIds={}",
+                    channelId,
+                    guildId,
+                    configuredGroupIds);
             return;
         }
 
+        JsonObject message = getAsObject(body, "message");
         JsonObject member = getAsObject(body, "member");
         JsonObject user = getAsObject(body, "user");
-        JsonObject message = getAsObject(body, "message");
         if (user == null && message != null) {
             user = getAsObject(message, "user");
         }
         if (message == null || user == null) {
+            SatoriBot.LOGGER.debug(
+                    "Ignoring Satori message-created without usable message/user payload. matchedGroupId={}, hasMessage={}, hasUser={}",
+                    matchedGroupId,
+                    message != null,
+                    user != null);
             return;
         }
 
         String userId = getAsString(user, "id");
         if (userId.isEmpty()) {
+            SatoriBot.LOGGER.debug("Ignoring Satori message-created with empty user id. matchedGroupId={}",
+                    matchedGroupId);
             return;
         }
         if (userId.equals(this.selfUserId)) {
@@ -435,10 +448,24 @@ final class SatoriRelayService {
                 userId);
         String plainText = SatoriText.toPlainText(getAsString(message, "content"));
         if (plainText.isEmpty()) {
+            SatoriBot.LOGGER.debug(
+                    "Ignoring Satori message-created with empty parsed content. matchedGroupId={}, userId={}",
+                    matchedGroupId, userId);
             return;
         }
 
+        SatoriBot.LOGGER.debug("Relaying inbound Satori message. matchedGroupId={}, userId={}", matchedGroupId, userId);
         relayToMinecraft(displayName, userId, plainText, matchedGroupId);
+    }
+
+    private String findMatchedGroupId(List<String> configuredGroupIds, String channelId, String guildId) {
+        if (!channelId.isEmpty() && configuredGroupIds.contains(channelId)) {
+            return channelId;
+        }
+        if (!guildId.isEmpty() && configuredGroupIds.contains(guildId)) {
+            return guildId;
+        }
+        return "";
     }
 
     private boolean updateLoginContext(JsonObject login) {
