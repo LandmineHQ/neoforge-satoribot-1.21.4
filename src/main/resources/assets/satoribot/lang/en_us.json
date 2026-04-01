@@ -2,7 +2,7 @@
   "satoribot.configuration.title": "SatoriBot Config",
   "satoribot.configuration.section.satoribot.common.toml": "SatoriBot Config",
   "satoribot.configuration.section.satoribot.common.toml.title": "SatoriBot Config",
-  "satoribot.configuration.groupId": "Target Group ID",
+  "satoribot.configuration.groupIds": "Target Group IDs",
   "satoribot.configuration.prefix": "Forward Prefix",
   "satoribot.configuration.mergeWindowSeconds": "Merge Window Seconds",
   "satoribot.configuration.satoriToken": "Satori Token",

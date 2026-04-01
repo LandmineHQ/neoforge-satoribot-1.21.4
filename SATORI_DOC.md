@@ -46,11 +46,22 @@
 
 配置项：
 
-- `groupId`
+- `groupIds`
 - `prefix`
 - `mergeWindowSeconds`（最小 5）
 - `satoriToken`
 - `satoriUrl`
+
+`groupIds` semantics:
+
+- outbound: send Minecraft messages to every configured group id
+- inbound: accept events only when `channel.id` or `guild.id` is in `groupIds`
+
+required config validation:
+
+- `groupIds` must not be empty
+- `satoriToken` must not be empty
+- if validation fails, relay module startup is aborted while Minecraft server keeps running
 
 `satoriUrl` 支持：
 
@@ -233,7 +244,7 @@ hover 文本：
 ## 7. 已知容易出错的点
 
 1. 只配 `token`，但未从 `READY` 或事件 `login` 中获取 `platform/self_id` 就调用 HTTP。
-2. 把 `groupId` 当成固定 `guild.id`，但实际平台发消息仍以 `channel_id` 为准。
+2. 把 `groupIds` 里的值当成固定 `guild.id`，但实际平台发消息仍以 `channel_id` 为准。
 3. WS 连接后未按时发送 `IDENTIFY`。
 4. 不做 `PING/PONG` 导致长连接被动断开后未及时恢复。
 5. 混淆 `event.sn` 与其他对象字段。
