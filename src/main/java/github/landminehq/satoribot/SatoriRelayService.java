@@ -21,6 +21,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
@@ -36,11 +37,27 @@ final class SatoriRelayService {
     private static final int OP_READY = 4;
     private static final long HEARTBEAT_SECONDS = 10L;
     private static final long RECONNECT_DELAY_SECONDS = 5L;
+    private static final long INTER_GROUP_DELAY_MIN_SECONDS = 1L;
+    private static final long INTER_GROUP_DELAY_MAX_SECONDS = 3L;
 
     private enum DeliveryStatus {
         SUCCESS,
         TRANSIENT_FAILURE,
         PERMANENT_FAILURE
+    }
+
+    private static final class DeliverySummary {
+        private boolean anySuccess;
+        private boolean anyTransientFailure;
+
+        void record(DeliveryStatus status) {
+            if (status == DeliveryStatus.SUCCESS) {
+                this.anySuccess = true;
+            }
+            if (status == DeliveryStatus.TRANSIENT_FAILURE) {
+                this.anyTransientFailure = true;
+            }
+        }
     }
 
     private final ScheduledExecutorService scheduler = Executors
@@ -173,30 +190,38 @@ final class SatoriRelayService {
 
         List<String> targetGroupIds = Config.groupIds();
         String escapedContent = SatoriText.escapePlainText(String.join("\n", batch));
-        List<CompletableFuture<DeliveryStatus>> deliveries = new ArrayList<>(targetGroupIds.size());
-        for (String groupId : targetGroupIds) {
-            deliveries.add(sendMessageCreate(endpoint, groupId, escapedContent));
+        CompletableFuture<DeliverySummary> sequence = CompletableFuture.completedFuture(new DeliverySummary());
+        for (int i = 0; i < targetGroupIds.size(); i++) {
+            String groupId = targetGroupIds.get(i);
+            boolean delayBeforeSend = i > 0;
+            sequence = sequence.thenCompose(summary -> createInterGroupDelay(delayBeforeSend)
+                    .thenCompose(ignored -> sendMessageCreate(endpoint, groupId, escapedContent))
+                    .thenApply(status -> {
+                        summary.record(status);
+                        return summary;
+                    }));
         }
 
-        CompletableFuture.allOf(deliveries.toArray(new CompletableFuture[0]))
-                .whenComplete((ignored, throwable) -> {
-                    boolean anySuccess = false;
-                    boolean anyTransientFailure = false;
+        sequence.whenComplete((summary, throwable) -> {
+            if (summary != null && summary.anyTransientFailure && !summary.anySuccess) {
+                requeue(batch);
+            }
+        });
+    }
 
-                    for (CompletableFuture<DeliveryStatus> delivery : deliveries) {
-                        DeliveryStatus status = delivery.getNow(DeliveryStatus.PERMANENT_FAILURE);
-                        if (status == DeliveryStatus.SUCCESS) {
-                            anySuccess = true;
-                        }
-                        if (status == DeliveryStatus.TRANSIENT_FAILURE) {
-                            anyTransientFailure = true;
-                        }
-                    }
+    private CompletableFuture<Void> createInterGroupDelay(boolean enabled) {
+        if (!enabled) {
+            return CompletableFuture.completedFuture(null);
+        }
 
-                    if (anyTransientFailure && !anySuccess) {
-                        requeue(batch);
-                    }
-                });
+        long delaySeconds = ThreadLocalRandom.current()
+                .nextLong(INTER_GROUP_DELAY_MIN_SECONDS, INTER_GROUP_DELAY_MAX_SECONDS + 1L);
+        SatoriBot.LOGGER.debug("Delaying next Satori group send by {} seconds.", delaySeconds);
+        return CompletableFuture.runAsync(
+                () -> {
+                },
+                CompletableFuture.delayedExecutor(delaySeconds, TimeUnit.SECONDS, this.scheduler)
+        );
     }
 
     private CompletableFuture<DeliveryStatus> sendMessageCreate(URI endpoint, String groupId, String escapedContent) {
