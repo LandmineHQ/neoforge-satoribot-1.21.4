@@ -78,6 +78,7 @@ build/<mcVer>/libs/satoribot-neoforge-<mcVer>-<mod_version>.jar
   5. Run `.\gradlew.bat buildAllVersions --no-daemon` when the change can affect shared behavior.
 - If a version API changes, patch only that version directory first. Add a common abstraction only when it reduces real duplication or protects the common relay from Minecraft / NeoForge APIs.
 - For NeoForge 26.1.2, `HoverEvent` text hover uses `new HoverEvent.ShowText(...)`; older 1.21.4 code uses the older `new HoverEvent(...)` form.
+- For NeoForge 26.1.2, the old built-in `net.neoforged.neoforge.client.gui.ConfigurationScreen` / `IConfigScreenFactory` API is not available in the NeoForge jar used by this project. Keep `SatoriBotClient` present for client lifecycle wiring, but do not copy the 1.21.4 config screen registration unless a replacement API or dependency is added.
 
 ## Documentation And Agent Maintenance
 
