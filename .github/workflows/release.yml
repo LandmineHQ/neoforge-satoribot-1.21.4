@@ -36,6 +36,7 @@ jobs:
       artifact_name: release-jars
       fetch_depth: 0
       fetch_tags: true
+      build_all_versions: true
 
   release:
     runs-on: ubuntu-latest

@@ -17,10 +17,11 @@ public final class SatoriBot {
     public static final String MODID = "satoribot";
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    private static final SatoriRelayService RELAY_SERVICE = new SatoriRelayService();
+    private static final NeoForgeRelayConfig CONFIG = new NeoForgeRelayConfig();
+    private static final SatoriRelayService RELAY_SERVICE = new SatoriRelayService(CONFIG, LOGGER);
 
     public SatoriBot(IEventBus modEventBus, ModContainer modContainer) {
-        modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+        modContainer.registerConfig(ModConfig.Type.COMMON, NeoForgeRelayConfig.SPEC);
         NeoForge.EVENT_BUS.register(new ServerEvents());
     }
 
@@ -34,7 +35,7 @@ public final class SatoriBot {
 
         @SubscribeEvent
         public void onServerStarted(ServerStartedEvent event) {
-            RELAY_SERVICE.start(event.getServer());
+            RELAY_SERVICE.start(new NeoForgeMinecraftRelayBridge(event.getServer()));
         }
 
         @SubscribeEvent

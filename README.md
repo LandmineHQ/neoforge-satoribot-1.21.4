@@ -1,4 +1,4 @@
-# SatoriBot (NeoForge 1.21.4)
+# SatoriBot (NeoForge 多版本)
 
 一个用于 `Minecraft 服务器聊天 <-> Satori` 双向转发的 NeoForge 模组。  
 核心用途是把游戏内聊天转发到多个指定 QQ 群（Satori 侧的 `channel_id` 列表），并把群消息实时展示到游戏公屏。
@@ -41,10 +41,13 @@
 
 ## 运行要求
 
-- Java 21+
-- Minecraft `1.21.4`
-- NeoForge `21.4.157`
+- 默认构建目标：Minecraft `26.1.2`
+- 默认 NeoForge：`26.1.2.59-beta`
+- 默认 Java：`25`
+- 旧版本目标按 `versionProperties/<mcVer>.properties` 中的 `java_version` 配置，例如 `1.21.4` 使用 Java `21`
 - 可用的 Satori 服务端（提供 `ws(s)://.../v1/events` 与对应 HTTP API）
+
+具体 Minecraft / NeoForge / Java 版本由 `versionProperties/<mcVer>.properties` 决定。
 
 ## 配置
 
@@ -82,6 +85,78 @@ satoriToken = "your-token"
 satoriUrl = "ws://127.0.0.1:5600/v1/events"
 ```
 
+## 多版本构建方式
+
+本项目采用类似 Distant Horizons 的“单仓库 + 版本属性文件”维护方式：
+
+```text
+gradle.properties                 # 默认 mcVer 和模组基础信息
+src/main/java/                    # 通用协议、抽象接口、版本无关逻辑
+src/main/resources/               # 通用资源
+versionProperties/26.1.2.properties
+versionProperties/1.21.4.properties
+versionProperties/_template.properties
+src/versioned/<mcVer>/java        # 版本专属 Java 适配代码
+src/versioned/<mcVer>/resources   # 可选：版本专属资源
+```
+
+默认目标由 `gradle.properties` 中的 `mcVer` 指定：
+
+```properties
+mcVer=26.1.2
+```
+
+构建默认版本：
+
+```bash
+./gradlew build
+```
+
+构建指定版本：
+
+```bash
+./gradlew build -PmcVer=26.1.2
+./gradlew build -PmcVer=1.21.4
+```
+
+PowerShell 中建议给 `-P` 参数加引号，避免 bat 参数被拆分：
+
+```powershell
+.\gradlew.bat build "-PmcVer=26.1.2"
+.\gradlew.bat build "-PmcVer=1.21.4"
+```
+
+构建 `versionProperties/*.properties` 中声明的所有版本：
+
+```bash
+./gradlew buildAllVersions
+```
+
+查看当前 Gradle 调用选中的版本：
+
+```bash
+./gradlew printSelectedMinecraftVersion
+```
+
+产物目录按 MC 版本隔离，例如：
+
+```text
+build/26.1.2/libs/
+```
+
+### 分层约定
+
+- `src/main/java`：放 Satori 协议、HTTP/WebSocket、中继缓冲、文本解析，以及 `RelayConfig` / `MinecraftRelayBridge` 这类抽象。
+- `src/versioned/<mcVer>/java`：放真正依赖 Minecraft / NeoForge API 的实现，例如 `@Mod` 入口、NeoForge 配置、聊天事件监听、Minecraft 公屏广播。
+- 当某个 MC 版本 API 变化时，只修改对应的 `src/versioned/<mcVer>`，尽量不要把版本差异写回通用层。
+
+新增一个 Minecraft 版本时：
+
+1. 复制 `versionProperties/_template.properties` 为 `versionProperties/<mc-version>.properties`
+2. 填入该版本对应的 `minecraft_version`、`neo_version`、`java_version` 等字段
+3. 如果代码 API 有差异，把适配代码放到 `src/versioned/<mc-version>/java`
+4. 执行 `./gradlew build -PmcVer=<mc-version>` 验证
+
 ## 构建与开发运行
 
 构建：
@@ -93,7 +168,7 @@ satoriUrl = "ws://127.0.0.1:5600/v1/events"
 产物目录：
 
 ```text
-build/libs/
+build/<mcVer>/libs/
 ```
 
 开发运行：
@@ -105,8 +180,8 @@ build/libs/
 
 ## GitHub Actions 工作流
 
-- `build.yml`：通用构建检查（push / pull_request）
-- `preview.yml`：构建 `main` 最新代码并更新单一 Preview Release
+- `build.yml`：构建 `versionProperties/*.properties` 中声明的全部版本（push / pull_request）
+- `preview.yml`：构建 `main` 最新代码的全部版本并更新单一 Preview Release
 - `release.yml`：当推送 `vX.Y.Z` tag 时构建并发布正式 Release
 - `reusable-build.yml`：复用构建逻辑（供上述流程调用）
 

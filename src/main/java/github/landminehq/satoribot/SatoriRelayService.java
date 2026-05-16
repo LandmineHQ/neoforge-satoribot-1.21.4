@@ -23,11 +23,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.server.MinecraftServer;
+import org.slf4j.Logger;
 
 final class SatoriRelayService {
     private static final int OP_EVENT = 0;
@@ -65,10 +61,12 @@ final class SatoriRelayService {
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
             .build();
+    private final RelayConfig config;
+    private final Logger logger;
     private final Object bufferLock = new Object();
     private final List<String> outboundBuffer = new ArrayList<>();
 
-    private volatile MinecraftServer server;
+    private volatile MinecraftRelayBridge minecraftBridge;
     private volatile WebSocket webSocket;
     private volatile boolean running;
     private volatile long lastSn;
@@ -79,12 +77,17 @@ final class SatoriRelayService {
     private long lastOutboundSentAtMillis;
     private ScheduledFuture<?> flushFuture;
 
-    public synchronized void start(MinecraftServer server) {
+    SatoriRelayService(RelayConfig config, Logger logger) {
+        this.config = Objects.requireNonNull(config);
+        this.logger = Objects.requireNonNull(logger);
+    }
+
+    public synchronized void start(MinecraftRelayBridge minecraftBridge) {
         stop();
         if (!validateRequiredConfig()) {
             return;
         }
-        this.server = server;
+        this.minecraftBridge = Objects.requireNonNull(minecraftBridge);
         this.running = true;
         this.lastSn = 0L;
         connectWebSocket();
@@ -112,7 +115,7 @@ final class SatoriRelayService {
             currentSocket.sendClose(WebSocket.NORMAL_CLOSURE, "server stopping");
         }
 
-        this.server = null;
+        this.minecraftBridge = null;
     }
 
     public void enqueueMinecraftMessage(String username, String rawText) {
@@ -129,7 +132,7 @@ final class SatoriRelayService {
         String fullMessage = formatOutboundMinecraftMessage(cleanUser, cleanMessage);
         List<String> immediateBatch = null;
         long now = System.currentTimeMillis();
-        long mergeWindowMillis = TimeUnit.SECONDS.toMillis(Config.mergeWindowSeconds());
+        long mergeWindowMillis = TimeUnit.SECONDS.toMillis(this.config.mergeWindowSeconds());
 
         synchronized (this.bufferLock) {
             if (!this.outboundBuffer.isEmpty()) {
@@ -181,14 +184,14 @@ final class SatoriRelayService {
         try {
             endpoint = buildMessageCreateUri();
         } catch (IllegalArgumentException ex) {
-            SatoriBot.LOGGER.error(
+            this.logger.error(
                     "Invalid Satori configuration. satoriUrl={}",
-                    Config.satoriUrl(),
+                    this.config.satoriUrl(),
                     ex);
             return;
         }
 
-        List<String> targetGroupIds = Config.groupIds();
+        List<String> targetGroupIds = this.config.groupIds();
         String escapedContent = SatoriText.escapePlainText(String.join("\n", batch));
         CompletableFuture<DeliverySummary> sequence = CompletableFuture.completedFuture(new DeliverySummary());
         for (int i = 0; i < targetGroupIds.size(); i++) {
@@ -216,7 +219,7 @@ final class SatoriRelayService {
 
         long delaySeconds = ThreadLocalRandom.current()
                 .nextLong(INTER_GROUP_DELAY_MIN_SECONDS, INTER_GROUP_DELAY_MAX_SECONDS + 1L);
-        SatoriBot.LOGGER.debug("Delaying next Satori group send by {} seconds.", delaySeconds);
+        this.logger.debug("Delaying next Satori group send by {} seconds.", delaySeconds);
         return CompletableFuture.runAsync(
                 () -> {
                 },
@@ -237,26 +240,26 @@ final class SatoriRelayService {
                 .header("Satori-User-ID", this.selfUserId)
                 .POST(HttpRequest.BodyPublishers.ofString(payload.toString(), StandardCharsets.UTF_8));
 
-        if (!Config.satoriToken().isEmpty()) {
-            requestBuilder.header("Authorization", "Bearer " + Config.satoriToken());
+        if (!this.config.satoriToken().isEmpty()) {
+            requestBuilder.header("Authorization", "Bearer " + this.config.satoriToken());
         }
 
         return httpClient.sendAsync(requestBuilder.build(), HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8))
                 .handle((response, throwable) -> {
                     if (throwable != null) {
-                        SatoriBot.LOGGER.error("Failed to forward Minecraft chat to Satori. groupId={}", groupId,
+                        this.logger.error("Failed to forward Minecraft chat to Satori. groupId={}", groupId,
                                 throwable);
                         return DeliveryStatus.TRANSIENT_FAILURE;
                     }
 
                     int status = response.statusCode();
                     if (status / 100 == 2) {
-                        SatoriBot.LOGGER.debug("Forwarded Minecraft chat to Satori. groupId={}, status={}", groupId,
+                        this.logger.debug("Forwarded Minecraft chat to Satori. groupId={}, status={}", groupId,
                                 status);
                         return DeliveryStatus.SUCCESS;
                     }
 
-                    SatoriBot.LOGGER.error(
+                    this.logger.error(
                             "Satori message.create failed. endpoint={}, groupId={}, status={}, body={}",
                             endpoint,
                             groupId,
@@ -280,7 +283,7 @@ final class SatoriRelayService {
             this.outboundBuffer.clear();
             this.outboundBuffer.addAll(combined);
             scheduleBufferedFlushLocked(System.currentTimeMillis(),
-                    TimeUnit.SECONDS.toMillis(Config.mergeWindowSeconds()));
+                    TimeUnit.SECONDS.toMillis(this.config.mergeWindowSeconds()));
         }
     }
 
@@ -297,7 +300,7 @@ final class SatoriRelayService {
     }
 
     private String formatOutboundMinecraftMessage(String username, String message) {
-        String prefix = Config.prefix();
+        String prefix = this.config.prefix();
         StringBuilder builder = new StringBuilder();
         if (prefix != null && !prefix.isEmpty()) {
             builder.append(prefix);
@@ -311,9 +314,9 @@ final class SatoriRelayService {
 
     private boolean canSendHttpMessages() {
         return this.running
-                && !Config.groupIds().isEmpty()
-                && !Config.satoriToken().isEmpty()
-                && !Config.satoriUrl().isEmpty()
+                && !this.config.groupIds().isEmpty()
+                && !this.config.satoriToken().isEmpty()
+                && !this.config.satoriUrl().isEmpty()
                 && this.loginPlatform != null
                 && !this.loginPlatform.isBlank()
                 && this.selfUserId != null
@@ -321,24 +324,24 @@ final class SatoriRelayService {
     }
 
     private boolean validateRequiredConfig() {
-        List<String> configuredGroupIds = Config.groupIds();
+        List<String> configuredGroupIds = this.config.groupIds();
         boolean valid = true;
         if (configuredGroupIds.isEmpty()) {
-            SatoriBot.LOGGER
+            this.logger
                     .error("Satori relay disabled: config groupIds is empty. Please configure at least one group id.");
             valid = false;
         }
-        if (Config.satoriToken().isEmpty()) {
-            SatoriBot.LOGGER
+        if (this.config.satoriToken().isEmpty()) {
+            this.logger
                     .error("Satori relay disabled: config satoriToken is empty. Please configure a valid token.");
             valid = false;
         }
         if (!valid) {
-            SatoriBot.LOGGER.error("Satori relay startup aborted due to invalid required configuration.");
+            this.logger.error("Satori relay startup aborted due to invalid required configuration.");
             return false;
         }
-        SatoriBot.LOGGER.info("Satori relay enabled. groupIds={}, satoriUrl={}", configuredGroupIds,
-                Config.satoriUrl());
+        this.logger.info("Satori relay enabled. groupIds={}, satoriUrl={}", configuredGroupIds,
+                this.config.satoriUrl());
         return true;
     }
 
@@ -349,20 +352,20 @@ final class SatoriRelayService {
 
         URI wsUri;
         try {
-            wsUri = URI.create(normalizeWsUrl(Config.satoriUrl()));
+            wsUri = URI.create(normalizeWsUrl(this.config.satoriUrl()));
         } catch (IllegalArgumentException ex) {
-            SatoriBot.LOGGER.error("Invalid Satori url in config: {}", Config.satoriUrl(), ex);
+            this.logger.error("Invalid Satori url in config: {}", this.config.satoriUrl(), ex);
             scheduleReconnect();
             return;
         }
 
-        SatoriBot.LOGGER.info("Connecting to Satori websocket: {}", wsUri);
+        this.logger.info("Connecting to Satori websocket: {}", wsUri);
         httpClient.newWebSocketBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .buildAsync(wsUri, new SatoriWebSocketListener())
                 .whenComplete((socket, throwable) -> {
                     if (throwable != null) {
-                        SatoriBot.LOGGER.error("Unable to connect to Satori websocket.", throwable);
+                        this.logger.error("Unable to connect to Satori websocket.", throwable);
                         scheduleReconnect();
                     }
                 });
@@ -373,7 +376,7 @@ final class SatoriRelayService {
         try {
             packet = JsonParser.parseString(payload).getAsJsonObject();
         } catch (RuntimeException ex) {
-            SatoriBot.LOGGER.error("Invalid Satori websocket payload: {}", payload, ex);
+            this.logger.error("Invalid Satori websocket payload: {}", payload, ex);
             return;
         }
 
@@ -385,25 +388,25 @@ final class SatoriRelayService {
             case OP_READY -> handleReady(body);
             case OP_PONG -> {
             }
-            default -> SatoriBot.LOGGER.debug("Ignoring Satori opcode {}", op);
+            default -> this.logger.debug("Ignoring Satori opcode {}", op);
         }
     }
 
     private void handleReady(JsonObject body) {
         JsonArray logins = getAsArray(body, "logins");
         if (logins == null || logins.isEmpty()) {
-            SatoriBot.LOGGER.warn("Received READY without login context.");
+            this.logger.warn("Received READY without login context.");
             return;
         }
 
         for (JsonElement element : logins) {
             if (element.isJsonObject() && updateLoginContext(element.getAsJsonObject())) {
-                SatoriBot.LOGGER.info("Satori login ready: {} / {}", this.loginPlatform, this.selfUserId);
+                this.logger.info("Satori login ready: {} / {}", this.loginPlatform, this.selfUserId);
                 return;
             }
         }
 
-        SatoriBot.LOGGER.warn("Received READY but could not extract a valid login context.");
+        this.logger.warn("Received READY but could not extract a valid login context.");
     }
 
     private void handleEvent(JsonObject body) {
@@ -422,7 +425,7 @@ final class SatoriRelayService {
             return;
         }
 
-        List<String> configuredGroupIds = Config.groupIds();
+        List<String> configuredGroupIds = this.config.groupIds();
         if (configuredGroupIds.isEmpty()) {
             return;
         }
@@ -433,7 +436,7 @@ final class SatoriRelayService {
         String guildId = guild == null ? "" : getAsString(guild, "id");
         String matchedGroupId = findMatchedGroupId(configuredGroupIds, channelId, guildId);
         if (matchedGroupId.isEmpty()) {
-            SatoriBot.LOGGER.debug(
+            this.logger.debug(
                     "Ignoring Satori message-created outside configured groups. channelId={}, guildId={}, configuredGroupIds={}",
                     channelId,
                     guildId,
@@ -448,7 +451,7 @@ final class SatoriRelayService {
             user = getAsObject(message, "user");
         }
         if (message == null || user == null) {
-            SatoriBot.LOGGER.debug(
+            this.logger.debug(
                     "Ignoring Satori message-created without usable message/user payload. matchedGroupId={}, hasMessage={}, hasUser={}",
                     matchedGroupId,
                     message != null,
@@ -458,7 +461,7 @@ final class SatoriRelayService {
 
         String userId = getAsString(user, "id");
         if (userId.isEmpty()) {
-            SatoriBot.LOGGER.debug("Ignoring Satori message-created with empty user id. matchedGroupId={}",
+            this.logger.debug("Ignoring Satori message-created with empty user id. matchedGroupId={}",
                     matchedGroupId);
             return;
         }
@@ -473,13 +476,13 @@ final class SatoriRelayService {
                 userId);
         String plainText = SatoriText.toPlainText(getAsString(message, "content"));
         if (plainText.isEmpty()) {
-            SatoriBot.LOGGER.debug(
+            this.logger.debug(
                     "Ignoring Satori message-created with empty parsed content. matchedGroupId={}, userId={}",
                     matchedGroupId, userId);
             return;
         }
 
-        SatoriBot.LOGGER.debug("Relaying inbound Satori message. matchedGroupId={}, userId={}", matchedGroupId, userId);
+        this.logger.debug("Relaying inbound Satori message. matchedGroupId={}, userId={}", matchedGroupId, userId);
         relayToMinecraft(displayName, userId, plainText, matchedGroupId);
     }
 
@@ -507,46 +510,23 @@ final class SatoriRelayService {
     }
 
     private void relayToMinecraft(String displayName, String userId, String plainText, String groupId) {
-        MinecraftServer currentServer = this.server;
-        if (currentServer == null) {
+        MinecraftRelayBridge currentBridge = this.minecraftBridge;
+        if (currentBridge == null) {
             return;
         }
 
         String[] lines = plainText.split("\\n");
-        currentServer.execute(() -> {
-            if (this.server == null) {
+        currentBridge.execute(() -> {
+            if (this.minecraftBridge != currentBridge) {
                 return;
             }
             for (String line : lines) {
                 if (line == null || line.isBlank()) {
                     continue;
                 }
-                this.server.getPlayerList().broadcastSystemMessage(
-                        Objects.requireNonNull(buildInboundMessage(displayName, userId, line.trim(), groupId)),
-                        false);
+                currentBridge.broadcastInboundMessage(displayName, userId, line.trim(), groupId);
             }
         });
-    }
-
-    private MutableComponent buildInboundMessage(String displayName, String userId, String message, String groupId) {
-        String safeDisplayName = Objects.requireNonNull(displayName);
-        String safeUserId = Objects.requireNonNull(userId);
-        String safeMessage = Objects.requireNonNull(message);
-        String safeGroupId = Objects.requireNonNull(groupId);
-        String sender = safeDisplayName + "(" + safeUserId + ")";
-        String hoverText = "群" + safeGroupId;
-        HoverEvent hoverEvent = new HoverEvent(
-                Objects.requireNonNull(HoverEvent.Action.SHOW_TEXT),
-                Objects.requireNonNull(Component.literal(hoverText)));
-
-        return Objects.requireNonNull(Component.empty())
-                .append(Objects.requireNonNull(Component.literal("<").withStyle(ChatFormatting.GRAY)))
-                .append(Objects.requireNonNull(
-                        Component.literal(sender).withStyle(style -> style
-                                .withColor(ChatFormatting.AQUA)
-                                .withHoverEvent(Objects.requireNonNull(hoverEvent)))))
-                .append(Objects.requireNonNull(Component.literal("> ").withStyle(ChatFormatting.GRAY)))
-                .append(Objects.requireNonNull(Component.literal(safeMessage).withStyle(ChatFormatting.WHITE)));
     }
 
     private URI buildMessageCreateUri() {
@@ -572,7 +552,7 @@ final class SatoriRelayService {
     }
 
     private URI resolveApiBaseUri() {
-        URI wsUri = URI.create(normalizeWsUrl(Config.satoriUrl()));
+        URI wsUri = URI.create(normalizeWsUrl(this.config.satoriUrl()));
         String httpScheme = "wss".equalsIgnoreCase(wsUri.getScheme()) ? "https" : "http";
         String path = wsUri.getPath() == null ? "" : wsUri.getPath();
         if (path.endsWith("/events")) {
@@ -627,8 +607,8 @@ final class SatoriRelayService {
         payload.addProperty("op", OP_IDENTIFY);
 
         JsonObject body = new JsonObject();
-        if (!Config.satoriToken().isEmpty()) {
-            body.addProperty("token", Config.satoriToken());
+        if (!this.config.satoriToken().isEmpty()) {
+            body.addProperty("token", this.config.satoriToken());
         }
         if (this.lastSn > 0) {
             body.addProperty("sn", this.lastSn);
@@ -651,7 +631,7 @@ final class SatoriRelayService {
         }
         currentSocket.sendText(payload.toString(), true)
                 .exceptionally(throwable -> {
-                    SatoriBot.LOGGER.error("Failed to send websocket payload to Satori.", throwable);
+                    this.logger.error("Failed to send websocket payload to Satori.", throwable);
                     return null;
                 });
     }
@@ -766,7 +746,7 @@ final class SatoriRelayService {
             cancelFuture(SatoriRelayService.this.pingFuture);
             SatoriRelayService.this.pingFuture = null;
             if (running) {
-                SatoriBot.LOGGER.warn("Satori websocket closed: {} {}", statusCode, reason);
+                logger.warn("Satori websocket closed: {} {}", statusCode, reason);
                 scheduleReconnect();
             }
             return CompletableFuture.completedFuture(null);
@@ -774,7 +754,7 @@ final class SatoriRelayService {
 
         @Override
         public void onError(WebSocket webSocket, Throwable error) {
-            SatoriBot.LOGGER.error("Satori websocket error.", error);
+            logger.error("Satori websocket error.", error);
         }
     }
 

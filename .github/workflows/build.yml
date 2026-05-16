@@ -8,3 +8,4 @@ jobs:
     with:
       fetch_depth: 0
       fetch_tags: true
+      build_all_versions: true
