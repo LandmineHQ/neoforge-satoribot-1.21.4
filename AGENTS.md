@@ -38,6 +38,7 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
   - `buildAllVersions` runs supported versions sequentially through the Gradle wrapper to avoid NeoGradle parallel build conflicts.
 - `.github/workflows/`
   - CI, preview, and release workflows build all declared `versionProperties/*.properties` targets.
+  - Uploaded artifacts keep their versioned build paths, so release and preview jobs should publish jars with recursive globs such as `dist/**/*.jar`.
 
 ## Build And Validation
 

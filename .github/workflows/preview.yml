@@ -49,4 +49,4 @@ jobs:
 
             Commit: ${{ github.sha }}
           files: |
-            dist/*.jar
+            dist/**/*.jar
