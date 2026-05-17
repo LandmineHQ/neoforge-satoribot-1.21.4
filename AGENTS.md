@@ -60,6 +60,19 @@ Common commands:
 
 PowerShell users should quote `-PmcVer=...` arguments when invoking `gradlew.bat`.
 
+Local testing follows the Distant Horizons-style Gradle task workflow. Do not maintain `.vscode/launch.json` as the project source of truth; `.vscode/` is local IDE state and is ignored by Git.
+
+```powershell
+.\gradlew.bat runServer --no-daemon
+.\gradlew.bat runClient --no-daemon
+.\gradlew.bat runServer --no-daemon "-PmcVer=26.1.2"
+.\gradlew.bat runClient --no-daemon "-PmcVer=26.1.2"
+.\gradlew.bat runServer --no-daemon "-PmcVer=1.21.4"
+.\gradlew.bat runClient --no-daemon "-PmcVer=1.21.4"
+```
+
+The run directories are `runs/server` and `runs/client`. IDE launch configurations may be regenerated locally from Gradle, but avoid committing or hand-maintaining them.
+
 Expected jar outputs:
 
 ```text

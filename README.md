@@ -171,11 +171,29 @@ build/26.1.2/libs/
 build/<mcVer>/libs/
 ```
 
-开发运行：
+本地开发测试采用类似 Distant Horizons 的 Gradle 任务方式，不维护 `.vscode/launch.json` 作为项目启动入口。VS Code 或其他 IDE 可以导入 Gradle 项目后自行生成本地运行配置，但项目内约定的测试入口是下面这些命令。
+
+运行默认版本：
 
 ```bash
 ./gradlew runServer
 ./gradlew runClient
+```
+
+运行指定版本：
+
+```powershell
+.\gradlew.bat runServer "-PmcVer=26.1.2"
+.\gradlew.bat runClient "-PmcVer=26.1.2"
+.\gradlew.bat runServer "-PmcVer=1.21.4"
+.\gradlew.bat runClient "-PmcVer=1.21.4"
+```
+
+常用运行目录：
+
+```text
+runs/server
+runs/client
 ```
 
 ## GitHub Actions 工作流
