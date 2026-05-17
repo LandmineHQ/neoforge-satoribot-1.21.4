@@ -3,7 +3,7 @@ package github.landminehq.satoribot;
 import net.minecraft.server.MinecraftServer;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-interface NeoForgeSatoriBotAdapter {
+interface NeoForgeRuntimeAdapter {
     ModConfigSpec configSpec();
 
     RelayConfig relayConfig();

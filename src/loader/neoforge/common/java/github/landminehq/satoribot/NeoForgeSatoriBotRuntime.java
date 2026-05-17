@@ -12,16 +12,15 @@ import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import org.slf4j.Logger;
 
-abstract class AbstractNeoForgeSatoriBot {
+final class NeoForgeSatoriBotRuntime {
     static final Logger LOGGER = LogUtils.getLogger();
 
     private static SatoriRelayService relayService;
 
-    protected AbstractNeoForgeSatoriBot(
-            IEventBus modEventBus,
-            ModContainer modContainer,
-            NeoForgeSatoriBotAdapter adapter
-    ) {
+    private NeoForgeSatoriBotRuntime() {
+    }
+
+    static void initialize(IEventBus modEventBus, ModContainer modContainer, NeoForgeRuntimeAdapter adapter) {
         Objects.requireNonNull(modEventBus, "modEventBus");
         Objects.requireNonNull(modContainer, "modContainer");
         Objects.requireNonNull(adapter, "adapter");
@@ -42,10 +41,10 @@ abstract class AbstractNeoForgeSatoriBot {
     }
 
     private static final class ServerEvents {
-        private final NeoForgeSatoriBotAdapter adapter;
+        private final NeoForgeRuntimeAdapter adapter;
         private final SatoriRelayService relayService;
 
-        private ServerEvents(NeoForgeSatoriBotAdapter adapter, SatoriRelayService relayService) {
+        private ServerEvents(NeoForgeRuntimeAdapter adapter, SatoriRelayService relayService) {
             this.adapter = Objects.requireNonNull(adapter, "adapter");
             this.relayService = Objects.requireNonNull(relayService, "relayService");
         }

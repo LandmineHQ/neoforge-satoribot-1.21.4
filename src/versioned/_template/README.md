@@ -10,4 +10,4 @@ The usual edit points are:
 - `NeoForgeVersionAdapter.java`: wire a different bridge/config implementation if a version needs one.
 
 The shared NeoForge lifecycle, config registration, server event handling, and
-message formatting live in `src/versioned/common/java`.
+message formatting live in `src/loader/neoforge/common/java`.

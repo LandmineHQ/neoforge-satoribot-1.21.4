@@ -7,11 +7,13 @@ import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 
-abstract class AbstractNeoForgeMinecraftRelayBridge implements MinecraftRelayBridge {
+final class NeoForgeMinecraftRelayBridgeSupport implements MinecraftRelayBridge {
     private final MinecraftServer server;
+    private final NeoForgeHoverFactory hoverFactory;
 
-    AbstractNeoForgeMinecraftRelayBridge(MinecraftServer server) {
+    NeoForgeMinecraftRelayBridgeSupport(MinecraftServer server, NeoForgeHoverFactory hoverFactory) {
         this.server = Objects.requireNonNull(server, "server");
+        this.hoverFactory = Objects.requireNonNull(hoverFactory, "hoverFactory");
     }
 
     @Override
@@ -26,15 +28,13 @@ abstract class AbstractNeoForgeMinecraftRelayBridge implements MinecraftRelayBri
                 false);
     }
 
-    protected abstract HoverEvent createGroupHover(String groupId);
-
     private MutableComponent buildInboundMessage(String displayName, String userId, String message, String groupId) {
         String safeDisplayName = Objects.requireNonNull(displayName, "displayName");
         String safeUserId = Objects.requireNonNull(userId, "userId");
         String safeMessage = Objects.requireNonNull(message, "message");
         String safeGroupId = Objects.requireNonNull(groupId, "groupId");
         String sender = safeDisplayName + "(" + safeUserId + ")";
-        HoverEvent hoverEvent = Objects.requireNonNull(createGroupHover(safeGroupId), "hoverEvent");
+        HoverEvent hoverEvent = Objects.requireNonNull(this.hoverFactory.createGroupHover(safeGroupId), "hoverEvent");
 
         return Objects.requireNonNull(Component.empty())
                 .append(Objects.requireNonNull(Component.literal("<").withStyle(ChatFormatting.GRAY)))
