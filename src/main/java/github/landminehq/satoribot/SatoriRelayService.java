@@ -130,6 +130,23 @@ final class SatoriRelayService {
         }
 
         String fullMessage = formatOutboundMinecraftMessage(cleanUser, cleanMessage);
+        enqueueFormattedOutboundMessage(fullMessage);
+    }
+
+    public void enqueueMinecraftSystemMessage(String message) {
+        if (!this.running) {
+            return;
+        }
+
+        String cleanMessage = message == null ? "" : message.trim();
+        if (cleanMessage.isEmpty()) {
+            return;
+        }
+
+        enqueueFormattedOutboundMessage(formatOutboundSystemMessage(cleanMessage));
+    }
+
+    private void enqueueFormattedOutboundMessage(String fullMessage) {
         List<String> immediateBatch = null;
         long now = System.currentTimeMillis();
         long mergeWindowMillis = TimeUnit.SECONDS.toMillis(this.config.mergeWindowSeconds());
@@ -300,6 +317,10 @@ final class SatoriRelayService {
     }
 
     private String formatOutboundMinecraftMessage(String username, String message) {
+        return formatOutboundSystemMessage("<" + username + "> " + message);
+    }
+
+    private String formatOutboundSystemMessage(String message) {
         String prefix = this.config.prefix();
         StringBuilder builder = new StringBuilder();
         if (prefix != null && !prefix.isEmpty()) {
@@ -308,7 +329,7 @@ final class SatoriRelayService {
                 builder.append(' ');
             }
         }
-        builder.append('<').append(username).append('>').append(' ').append(message);
+        builder.append(message);
         return builder.toString();
     }
 
@@ -482,8 +503,75 @@ final class SatoriRelayService {
             return;
         }
 
+        if (handleSatoriCommand(plainText, matchedGroupId)) {
+            return;
+        }
+
         this.logger.debug("Relaying inbound Satori message. matchedGroupId={}, userId={}", matchedGroupId, userId);
         relayToMinecraft(displayName, userId, plainText, matchedGroupId);
+    }
+
+    private boolean handleSatoriCommand(String plainText, String replyGroupId) {
+        String command = plainText == null ? "" : plainText.trim();
+        if (!isListCommand(command)) {
+            return false;
+        }
+
+        MinecraftRelayBridge currentBridge = this.minecraftBridge;
+        if (currentBridge == null) {
+            sendSatoriCommandResponse(replyGroupId, formatOutboundSystemMessage("Minecraft 服务器尚未就绪。"));
+            return true;
+        }
+
+        currentBridge.queryOnlinePlayers().whenComplete((response, throwable) -> {
+            if (throwable != null) {
+                this.logger.error("Failed to execute Satori list command.", throwable);
+                sendSatoriCommandResponse(replyGroupId, formatOutboundSystemMessage("执行 list 命令失败。"));
+                return;
+            }
+            String cleanResponse = response == null || response.isBlank()
+                    ? "当前没有玩家在线。"
+                    : response.trim();
+            sendSatoriCommandResponse(replyGroupId, formatOutboundSystemMessage(cleanResponse));
+        });
+        return true;
+    }
+
+    private boolean isListCommand(String command) {
+        String commandScope = this.config.prefix() == null ? "" : this.config.prefix().trim();
+        return command.equalsIgnoreCase("!!" + commandScope + "list")
+                || command.equalsIgnoreCase("!!" + commandScope + "ls");
+    }
+
+    private void sendSatoriCommandResponse(String groupId, String content) {
+        if (!canSendHttpMessages()) {
+            this.logger.warn("Unable to send Satori command response because relay login context is not ready.");
+            return;
+        }
+
+        URI endpoint;
+        try {
+            endpoint = buildMessageCreateUri();
+        } catch (IllegalArgumentException ex) {
+            this.logger.error(
+                    "Invalid Satori configuration. satoriUrl={}",
+                    this.config.satoriUrl(),
+                    ex);
+            return;
+        }
+
+        String targetGroupId = groupId == null ? "" : groupId.trim();
+        if (targetGroupId.isEmpty()) {
+            return;
+        }
+
+        sendMessageCreate(endpoint, targetGroupId, SatoriText.escapePlainText(content))
+                .thenAccept(status -> {
+                    if (status != DeliveryStatus.SUCCESS) {
+                        this.logger.warn("Satori command response was not delivered. groupId={}, status={}",
+                                targetGroupId, status);
+                    }
+                });
     }
 
     private String findMatchedGroupId(List<String> configuredGroupIds, String channelId, String guildId) {

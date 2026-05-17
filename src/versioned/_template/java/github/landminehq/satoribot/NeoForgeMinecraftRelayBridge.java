@@ -1,6 +1,7 @@
 package github.landminehq.satoribot;
 
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.server.MinecraftServer;
@@ -20,6 +21,11 @@ final class NeoForgeMinecraftRelayBridge implements MinecraftRelayBridge {
     @Override
     public void broadcastInboundMessage(String displayName, String userId, String message, String groupId) {
         this.support.broadcastInboundMessage(displayName, userId, message, groupId);
+    }
+
+    @Override
+    public CompletableFuture<String> queryOnlinePlayers() {
+        return this.support.queryOnlinePlayers();
     }
 
     private static HoverEvent createGroupHover(String groupId) {

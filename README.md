@@ -6,7 +6,9 @@
 ## 功能概览
 
 - 游戏内消息转发到 Satori（HTTP `message.create`）
+- 玩家进入/退出服务器事件转发到 Satori
 - 群消息通过 Satori WebSocket 事件转发到 Minecraft 公屏
+- 支持 Satori 侧命令查询 Minecraft 在线玩家
 - 支持消息合并窗口，避免短时间高频刷屏
 - 支持转发前缀 `prefix`
 - 支持图文混排消息解析（图片/语音/视频/文件/表情等占位显示）
@@ -16,6 +18,7 @@
 
 ### Minecraft -> 群聊
 
+- 游戏内聊天、玩家进入、玩家退出都会作为 Minecraft 侧消息转发到 Satori
 - 发送前先判断“当前时间”与“上次成功发送时间”
 - 若小于 `mergeWindowSeconds`（最小 5 秒），消息进入缓冲队列
 - 若大于等于窗口，立即发送
@@ -38,6 +41,26 @@
 ```
 
 - 名字悬停提示：`群<group_id>`（当前消息命中的群 ID）
+
+### Satori 命令
+
+Satori 消息会先检查是否为命令；命令消息不会再转发到 Minecraft 公屏。
+
+当前预设命令：
+
+```text
+!!list
+!!ls
+```
+
+如果配置了 `prefix`，命令需要带上这个前缀。例如 `prefix = "mc"` 时：
+
+```text
+!!mclist
+!!mcls
+```
+
+`list` / `ls` 会查询 Minecraft 当前在线玩家，并把结果回复到触发命令的 Satori 频道。
 
 ## 运行要求
 

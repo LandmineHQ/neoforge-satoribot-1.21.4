@@ -7,6 +7,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.ServerChatEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStoppingEvent;
@@ -62,6 +63,18 @@ final class NeoForgeSatoriBotRuntime {
         @SubscribeEvent
         public void onServerChat(ServerChatEvent event) {
             this.relayService.enqueueMinecraftMessage(event.getUsername(), event.getRawText());
+        }
+
+        @SubscribeEvent
+        public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
+            String playerName = event.getEntity().getScoreboardName();
+            this.relayService.enqueueMinecraftSystemMessage(playerName + " 加入了游戏。");
+        }
+
+        @SubscribeEvent
+        public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+            String playerName = event.getEntity().getScoreboardName();
+            this.relayService.enqueueMinecraftSystemMessage(playerName + " 离开了游戏。");
         }
     }
 }

@@ -5,7 +5,9 @@
 SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Satori-compatible message channels.
 
 - Minecraft chat is forwarded to configured Satori `channel_id` targets through HTTP `message.create`.
+- Minecraft player join/leave events are forwarded to configured Satori targets as system messages.
 - Satori `message-created` events are received through WebSocket and broadcast to the Minecraft public chat.
+- Prefix-scoped Satori commands are intercepted before Minecraft broadcast; `!!list` / `!!ls` or `!!<prefix>list` / `!!<prefix>ls` replies with the online player list.
 - The relay supports message merge windows, optional outbound prefixes, Satori element-to-text parsing, heartbeat, and reconnect behavior.
 
 ## Repository Structure
@@ -17,7 +19,7 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
     - `SatoriRelayService.java`: common relay runtime.
     - `SatoriText.java`: Satori element text conversion and escaping.
     - `RelayConfig.java`: common config abstraction.
-    - `MinecraftRelayBridge.java`: common Minecraft chat bridge abstraction.
+    - `MinecraftRelayBridge.java`: common Minecraft chat and query bridge abstraction.
 - `src/main/resources/`
   - Common resources shared by all supported Minecraft versions.
   - `META-INF/neoforge.mods.toml` uses Gradle property expansion.
@@ -30,7 +32,7 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
   - This is loader-specific shared implementation, not the pure abstraction layer.
   - Important files:
     - `NeoForgeRuntimeAdapter.java`: loader runtime adapter interface implemented by each selected version.
-    - `NeoForgeSatoriBotRuntime.java`: shared config registration, server event lifecycle, and relay service wiring.
+    - `NeoForgeSatoriBotRuntime.java`: shared config registration, server/chat/player event lifecycle, and relay service wiring.
     - `NeoForgeMinecraftRelayBridgeSupport.java`: shared inbound chat component formatting.
 - `src/versioned/_template/java/`
   - Copyable Java source template for adding another Minecraft version.
