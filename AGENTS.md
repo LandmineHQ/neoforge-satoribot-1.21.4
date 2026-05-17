@@ -23,8 +23,18 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
   - `META-INF/neoforge.mods.toml` uses Gradle property expansion.
 - `src/versioned/<mcVer>/java/`
   - Version-specific Minecraft / NeoForge implementation code.
-  - Put `@Mod` entrypoints, NeoForge config specs, server chat event listeners, chat component broadcasting, and version API shims here.
-  - Do not move Minecraft or NeoForge API differences into common code unless there is a clear cross-version abstraction.
+  - Put `@Mod` entrypoints, `NeoForgeVersionAdapter` implementations, client setup, chat component shims, and version API shims here.
+  - Each version must provide a `NeoForgeVersionAdapter` implementing `NeoForgeSatoriBotAdapter`.
+- `src/versioned/common/java/`
+  - NeoForge / Minecraft-facing code shared by every selected version.
+  - Important files:
+    - `NeoForgeSatoriBotAdapter.java`: version adapter interface.
+    - `AbstractNeoForgeSatoriBot.java`: shared config registration, server event lifecycle, and relay service wiring.
+    - `AbstractNeoForgeMinecraftRelayBridge.java`: shared inbound chat component formatting.
+    - `NeoForgeRelayConfig.java`: shared NeoForge config spec while the API remains compatible.
+- `src/versioned/_template/java/`
+  - Copyable Java source template for adding another Minecraft version.
+  - Prefer copying the closest existing version when the target API is closer to it than to the template.
 - `src/versioned/<mcVer>/resources/`
   - Optional version-specific resources for the selected Minecraft version.
 - `versionProperties/`
@@ -34,7 +44,7 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
     - `1.21.4.properties`: legacy target, NeoForge `21.4.157`, Java `21`.
   - Use `_template.properties` when adding another Minecraft version.
 - `build.gradle`
-  - Reads `mcVer`, loads `versionProperties/<mcVer>.properties`, adds the selected `src/versioned/<mcVer>` source set, and writes outputs to `build/<mcVer>/`.
+  - Reads `mcVer`, loads `versionProperties/<mcVer>.properties`, adds `src/versioned/common` plus the selected `src/versioned/<mcVer>` source set, and writes outputs to `build/<mcVer>/`.
   - `buildAllVersions` runs supported versions sequentially through the Gradle wrapper to avoid NeoGradle parallel build conflicts.
 - `.github/workflows/`
   - CI, preview, and release workflows build all declared `versionProperties/*.properties` targets.
@@ -82,14 +92,16 @@ build/<mcVer>/libs/satoribot-neoforge-<mcVer>-<mod_version>.jar
 ## Multi-Version Maintenance Rules
 
 - Keep common behavior in `src/main/java`.
-- Keep concrete Minecraft / NeoForge API usage in `src/versioned/<mcVer>/java`.
+- Keep shared NeoForge / Minecraft wiring in `src/versioned/common/java`.
+- Keep concrete version-specific Minecraft / NeoForge API usage in `src/versioned/<mcVer>/java`.
 - When adding a Minecraft version:
   1. Copy `versionProperties/_template.properties` to `versionProperties/<mcVer>.properties`.
   2. Fill `minecraft_version`, `minecraft_version_range`, `neo_version`, `loader_version_range`, and `java_version`.
-  3. Add or copy version-specific implementation files under `src/versioned/<mcVer>/java`.
-  4. Run `.\gradlew.bat build --no-daemon "-PmcVer=<mcVer>"`.
-  5. Run `.\gradlew.bat buildAllVersions --no-daemon` when the change can affect shared behavior.
-- If a version API changes, patch only that version directory first. Add a common abstraction only when it reduces real duplication or protects the common relay from Minecraft / NeoForge APIs.
+  3. Copy `src/versioned/_template/java` or the closest existing version directory to `src/versioned/<mcVer>/java`.
+  4. Implement or adjust `NeoForgeVersionAdapter`, `NeoForgeMinecraftRelayBridge`, `SatoriBot`, and `SatoriBotClient` for the target version.
+  5. Run `.\gradlew.bat build --no-daemon "-PmcVer=<mcVer>"`.
+  6. Run `.\gradlew.bat buildAllVersions --no-daemon` when the change can affect shared behavior.
+- If a version API changes, patch only that version directory first. Move code into `src/versioned/common` only when it compiles cleanly for every supported selected version and reduces real duplication.
 - For NeoForge 26.1.2, `HoverEvent` text hover uses `new HoverEvent.ShowText(...)`; older 1.21.4 code uses the older `new HoverEvent(...)` form.
 - For NeoForge 26.1.2, the old built-in `net.neoforged.neoforge.client.gui.ConfigurationScreen` / `IConfigScreenFactory` API is not available in the NeoForge jar used by this project. Keep `SatoriBotClient` present for client lifecycle wiring, but do not copy the 1.21.4 config screen registration unless a replacement API or dependency is added.
 
