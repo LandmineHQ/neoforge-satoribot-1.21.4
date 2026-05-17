@@ -30,15 +30,19 @@ by all supported selected NeoForge versions:
 - `NeoForgeRuntimeAdapter`: interface each version implements for the NeoForge runtime.
 - `NeoForgeSatoriBotRuntime`: common config registration and server event lifecycle.
 - `NeoForgeMinecraftRelayBridgeSupport`: common inbound chat formatting.
-- `NeoForgeRelayConfig`: shared config spec while the NeoForge config API remains compatible.
 
 Use `src/versioned/<mcVer>/java` for concrete Minecraft / NeoForge implementations:
 
 - `@Mod` entrypoints
 - `NeoForgeVersionAdapter` implementations
+- `NeoForgeRelayConfig` config specs
 - version-specific chat/component and hover-event shims
 - client-only setup or config screen registration
 - any API compatibility shim needed by one Minecraft version
+
+Keep NeoForge config specs in the selected version directory. Even when several
+NeoForge versions currently compile with the same `ModConfigSpec` syntax, the
+config spec is still part of the loader/version API surface.
 
 When adding a NeoForge version, copy `src/versioned/_template/java` to
 `src/versioned/<mcVer>/java` and then patch only the APIs that changed for that

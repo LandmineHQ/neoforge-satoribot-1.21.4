@@ -23,7 +23,7 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
   - `META-INF/neoforge.mods.toml` uses Gradle property expansion.
 - `src/versioned/<mcVer>/java/`
   - Version-specific Minecraft / NeoForge implementation code.
-  - Put `@Mod` entrypoints, `NeoForgeVersionAdapter` implementations, client setup, chat component shims, and version API shims here.
+  - Put `@Mod` entrypoints, `NeoForgeVersionAdapter` implementations, `NeoForgeRelayConfig` config specs, client setup, chat component shims, and version API shims here.
   - Each version must provide a `NeoForgeVersionAdapter` implementing `NeoForgeRuntimeAdapter`.
 - `src/loader/neoforge/common/java/`
   - NeoForge / Minecraft-facing code shared by every selected NeoForge version.
@@ -32,7 +32,6 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
     - `NeoForgeRuntimeAdapter.java`: loader runtime adapter interface implemented by each selected version.
     - `NeoForgeSatoriBotRuntime.java`: shared config registration, server event lifecycle, and relay service wiring.
     - `NeoForgeMinecraftRelayBridgeSupport.java`: shared inbound chat component formatting.
-    - `NeoForgeRelayConfig.java`: shared NeoForge config spec while the API remains compatible.
 - `src/versioned/_template/java/`
   - Copyable Java source template for adding another Minecraft version.
   - Prefer copying the closest existing version when the target API is closer to it than to the template.
@@ -100,11 +99,12 @@ build/<mcVer>/libs/satoribot-neoforge-<mcVer>-<mod_version>.jar
 - Keep pure abstraction layers free of `net.minecraft.*` and `net.neoforged.*` imports.
 - Keep shared NeoForge / Minecraft wiring in `src/loader/neoforge/common/java`.
 - Keep concrete version-specific Minecraft / NeoForge API usage in `src/versioned/<mcVer>/java`.
+- Keep NeoForge config specs in `src/versioned/<mcVer>/java/NeoForgeRelayConfig.java`; loader common may register a spec but must not define it.
 - When adding a Minecraft version:
   1. Copy `versionProperties/_template.properties` to `versionProperties/<mcVer>.properties`.
   2. Fill `minecraft_version`, `minecraft_version_range`, `neo_version`, `loader_version_range`, and `java_version`.
   3. Copy `src/versioned/_template/java` or the closest existing version directory to `src/versioned/<mcVer>/java`.
-  4. Implement or adjust `NeoForgeVersionAdapter`, `NeoForgeMinecraftRelayBridge`, `SatoriBot`, and `SatoriBotClient` for the target version.
+  4. Implement or adjust `NeoForgeVersionAdapter`, `NeoForgeRelayConfig`, `NeoForgeMinecraftRelayBridge`, `SatoriBot`, and `SatoriBotClient` for the target version.
   5. Run `.\gradlew.bat build --no-daemon "-PmcVer=<mcVer>"`.
   6. Run `.\gradlew.bat buildAllVersions --no-daemon` when the change can affect shared behavior.
 - If a version API changes, patch only that version directory first. Move code into `src/loader/neoforge/common` only when it compiles cleanly for every supported selected NeoForge version and reduces real duplication.

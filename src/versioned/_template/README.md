@@ -5,6 +5,7 @@ version, then adjust the files that touch changed Minecraft or NeoForge APIs.
 
 The usual edit points are:
 
+- `NeoForgeRelayConfig.java`: NeoForge config spec API.
 - `NeoForgeMinecraftRelayBridge.java`: inbound chat component and hover event API.
 - `SatoriBotClient.java`: client-only setup or config screen extension APIs.
 - `NeoForgeVersionAdapter.java`: wire a different bridge/config implementation if a version needs one.

@@ -152,9 +152,10 @@ build/26.1.2/libs/
 ### 分层约定
 
 - `src/main/java`：放 Satori 协议、HTTP/WebSocket、中继缓冲、文本解析，以及 `RelayConfig` / `MinecraftRelayBridge` 这类纯抽象。
-- `src/loader/neoforge/common/java`：放明确属于 NeoForge loader 的共享运行时，例如 `NeoForgeSatoriBotRuntime`、`NeoForgeRuntimeAdapter`、共享配置和 Minecraft 组件广播辅助。
-- `src/versioned/<mcVer>/java`：放该版本真正需要实现或覆盖的适配代码，例如 `NeoForgeVersionAdapter`、`@Mod` 入口、HoverEvent shim、客户端配置入口。
+- `src/loader/neoforge/common/java`：放明确属于 NeoForge loader 的共享运行时，例如 `NeoForgeSatoriBotRuntime`、`NeoForgeRuntimeAdapter` 和 Minecraft 组件广播辅助。
+- `src/versioned/<mcVer>/java`：放该版本真正需要实现或覆盖的适配代码，例如 `NeoForgeVersionAdapter`、`NeoForgeRelayConfig`、`@Mod` 入口、HoverEvent shim、客户端配置入口。
 - 抽象层不能直接 import `net.minecraft.*` 或 `net.neoforged.*`。如果代码依赖 NeoForge/Minecraft，但能跨多个 NeoForge 版本共享，放到 `src/loader/neoforge/common`，不要放到抽象 common 层。
+- NeoForge config spec 也属于版本 API 表面。即使多个版本暂时写法相同，也优先放在 `src/versioned/<mcVer>/java/NeoForgeRelayConfig.java`，由 `NeoForgeVersionAdapter` 暴露给 loader runtime。
 - 当某个 MC 版本 API 变化时，优先只修改对应的 `src/versioned/<mcVer>`；只有确认多个 NeoForge 版本能共享时，才上移到 `src/loader/neoforge/common`。
 
 新增一个 Minecraft 版本时：
