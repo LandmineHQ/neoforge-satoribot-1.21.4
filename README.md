@@ -44,7 +44,7 @@
 - 默认构建目标：Minecraft `26.1.2`
 - 默认 NeoForge：`26.1.2.59-beta`
 - 默认 Java：`25`
-- 旧版本目标按 `versionProperties/<mcVer>.properties` 中的 `java_version` 配置，例如 `1.21.4` 使用 Java `21`
+- 其他版本目标按 `versionProperties/<mcVer>.properties` 中的 `java_version` 配置，例如 `1.21.11` / `1.21.4` 使用 Java `21`
 - 可用的 Satori 服务端（提供 `ws(s)://.../v1/events` 与对应 HTTP API）
 
 具体 Minecraft / NeoForge / Java 版本由 `versionProperties/<mcVer>.properties` 决定。
@@ -96,6 +96,7 @@ src/main/resources/               # 通用资源
 src/versioned/common/java         # NeoForge/Minecraft 侧跨版本通用壳
 src/versioned/_template/java      # 新增版本时可复制的 Java 模板
 versionProperties/26.1.2.properties
+versionProperties/1.21.11.properties
 versionProperties/1.21.4.properties
 versionProperties/_template.properties
 src/versioned/<mcVer>/java        # 版本专属 Java 适配代码
@@ -118,6 +119,7 @@ mcVer=26.1.2
 
 ```bash
 ./gradlew build -PmcVer=26.1.2
+./gradlew build -PmcVer=1.21.11
 ./gradlew build -PmcVer=1.21.4
 ```
 
@@ -125,6 +127,7 @@ PowerShell 中建议给 `-P` 参数加引号，避免 bat 参数被拆分：
 
 ```powershell
 .\gradlew.bat build "-PmcVer=26.1.2"
+.\gradlew.bat build "-PmcVer=1.21.11"
 .\gradlew.bat build "-PmcVer=1.21.4"
 ```
 
@@ -189,6 +192,8 @@ build/<mcVer>/libs/
 ```powershell
 .\gradlew.bat runServer "-PmcVer=26.1.2"
 .\gradlew.bat runClient "-PmcVer=26.1.2"
+.\gradlew.bat runServer "-PmcVer=1.21.11"
+.\gradlew.bat runClient "-PmcVer=1.21.11"
 .\gradlew.bat runServer "-PmcVer=1.21.4"
 .\gradlew.bat runClient "-PmcVer=1.21.4"
 ```
