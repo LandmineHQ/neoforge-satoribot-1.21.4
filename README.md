@@ -44,10 +44,10 @@
 - 默认构建目标：Minecraft `26.1.2`
 - 默认 NeoForge：`26.1.2.59-beta`
 - 默认 Java：`25`
-- 其他版本目标按 `versionProperties/<mcVer>.properties` 中的 `java_version` 配置，例如 `1.21.11` / `1.21.4` 使用 Java `21`
+- 其他版本目标按 `versionProperties/<version>.properties` 中的 `java_version` 配置
 - 可用的 Satori 服务端（提供 `ws(s)://.../v1/events` 与对应 HTTP API）
 
-具体 Minecraft / NeoForge / Java 版本由 `versionProperties/<mcVer>.properties` 决定。
+具体 Minecraft / NeoForge / Java 版本由 `versionProperties/<version>.properties` 决定。
 
 ## 配置
 
@@ -96,11 +96,10 @@ src/main/resources/               # 通用资源
 src/loader/neoforge/common/java   # NeoForge loader 侧共享运行时
 src/versioned/_template/java      # 新增版本时可复制的 Java 模板
 versionProperties/26.1.2.properties
-versionProperties/1.21.11.properties
-versionProperties/1.21.4.properties
+versionProperties/<version>.properties
 versionProperties/_template.properties
-src/versioned/<mcVer>/java        # 版本专属 Java 适配代码
-src/versioned/<mcVer>/resources   # 可选：版本专属资源
+src/versioned/<version>/java      # 版本专属 Java 适配代码
+src/versioned/<version>/resources # 可选：版本专属资源
 ```
 
 默认目标由 `gradle.properties` 中的 `mcVer` 指定：
@@ -118,17 +117,13 @@ mcVer=26.1.2
 构建指定版本：
 
 ```bash
-./gradlew build -PmcVer=26.1.2
-./gradlew build -PmcVer=1.21.11
-./gradlew build -PmcVer=1.21.4
+./gradlew build -PmcVer=<version>
 ```
 
 PowerShell 中建议给 `-P` 参数加引号，避免 bat 参数被拆分：
 
 ```powershell
-.\gradlew.bat build "-PmcVer=26.1.2"
-.\gradlew.bat build "-PmcVer=1.21.11"
-.\gradlew.bat build "-PmcVer=1.21.4"
+.\gradlew.bat build "-PmcVer=<version>"
 ```
 
 构建 `versionProperties/*.properties` 中声明的所有版本：
@@ -146,25 +141,25 @@ PowerShell 中建议给 `-P` 参数加引号，避免 bat 参数被拆分：
 产物目录按 MC 版本隔离，例如：
 
 ```text
-build/26.1.2/libs/
+build/<version>/libs/
 ```
 
 ### 分层约定
 
 - `src/main/java`：放 Satori 协议、HTTP/WebSocket、中继缓冲、文本解析，以及 `RelayConfig` / `MinecraftRelayBridge` 这类纯抽象。
 - `src/loader/neoforge/common/java`：放明确属于 NeoForge loader 的共享运行时，例如 `NeoForgeSatoriBotRuntime`、`NeoForgeRuntimeAdapter` 和 Minecraft 组件广播辅助。
-- `src/versioned/<mcVer>/java`：放该版本真正需要实现或覆盖的适配代码，例如 `NeoForgeVersionAdapter`、`NeoForgeRelayConfig`、`@Mod` 入口、HoverEvent shim、客户端配置入口。
+- `src/versioned/<version>/java`：放该版本真正需要实现或覆盖的适配代码，例如 `NeoForgeVersionAdapter`、`NeoForgeRelayConfig`、`@Mod` 入口、HoverEvent shim、客户端配置入口。
 - 抽象层不能直接 import `net.minecraft.*` 或 `net.neoforged.*`。如果代码依赖 NeoForge/Minecraft，但能跨多个 NeoForge 版本共享，放到 `src/loader/neoforge/common`，不要放到抽象 common 层。
-- NeoForge config spec 也属于版本 API 表面。即使多个版本暂时写法相同，也优先放在 `src/versioned/<mcVer>/java/NeoForgeRelayConfig.java`，由 `NeoForgeVersionAdapter` 暴露给 loader runtime。
-- 当某个 MC 版本 API 变化时，优先只修改对应的 `src/versioned/<mcVer>`；只有确认多个 NeoForge 版本能共享时，才上移到 `src/loader/neoforge/common`。
+- NeoForge config spec 也属于版本 API 表面。即使多个版本暂时写法相同，也优先放在 `src/versioned/<version>/java/NeoForgeRelayConfig.java`，由 `NeoForgeVersionAdapter` 暴露给 loader runtime。
+- 当某个 MC 版本 API 变化时，优先只修改对应的 `src/versioned/<version>`；只有确认多个 NeoForge 版本能共享时，才上移到 `src/loader/neoforge/common`。
 
 新增一个 Minecraft 版本时：
 
-1. 复制 `versionProperties/_template.properties` 为 `versionProperties/<mc-version>.properties`
+1. 复制 `versionProperties/_template.properties` 为 `versionProperties/<version>.properties`
 2. 填入该版本对应的 `minecraft_version`、`neo_version`、`java_version` 等字段
-3. 复制 `src/versioned/_template/java` 到 `src/versioned/<mc-version>/java`，或从最接近的已有版本复制
+3. 复制 `src/versioned/_template/java` 到 `src/versioned/<version>/java`，或从最接近的已有版本复制
 4. 让该版本的 `NeoForgeVersionAdapter` 实现 `NeoForgeRuntimeAdapter`，并按需调整 HoverEvent、客户端配置入口等版本差异
-5. 执行 `./gradlew build -PmcVer=<mc-version>` 验证
+5. 执行 `./gradlew build -PmcVer=<version>` 验证
 
 ## 构建与开发运行
 
@@ -177,7 +172,7 @@ build/26.1.2/libs/
 产物目录：
 
 ```text
-build/<mcVer>/libs/
+build/<version>/libs/
 ```
 
 本地开发测试采用类似 Distant Horizons 的 Gradle 任务方式，不维护 `.vscode/launch.json` 作为项目启动入口。VS Code 或其他 IDE 可以导入 Gradle 项目后自行生成本地运行配置，但项目内约定的测试入口是下面这些命令。
@@ -192,12 +187,8 @@ build/<mcVer>/libs/
 运行指定版本：
 
 ```powershell
-.\gradlew.bat runServer "-PmcVer=26.1.2"
-.\gradlew.bat runClient "-PmcVer=26.1.2"
-.\gradlew.bat runServer "-PmcVer=1.21.11"
-.\gradlew.bat runClient "-PmcVer=1.21.11"
-.\gradlew.bat runServer "-PmcVer=1.21.4"
-.\gradlew.bat runClient "-PmcVer=1.21.4"
+.\gradlew.bat runServer "-PmcVer=<version>"
+.\gradlew.bat runClient "-PmcVer=<version>"
 ```
 
 常用运行目录：
