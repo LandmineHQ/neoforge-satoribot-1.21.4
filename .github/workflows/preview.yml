@@ -10,12 +10,36 @@ permissions:
   contents: write
 
 jobs:
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Discover Minecraft versions
+        id: versions
+        shell: bash
+        run: |
+          mapfile -t files < <(find versionProperties -maxdepth 1 -type f -name '*.properties' ! -name '_*' | sort -V)
+          for file in "${files[@]}"; do
+            mc_version="$(basename "$file" .properties)"
+            java_version="$(awk -F= '$1 == "java_version" { gsub(/[[:space:]]/, "", $2); print $2 }' "$file")"
+            jq -cn --arg mc_version "$mc_version" --arg java_version "${java_version:-21}" '{mc_version: $mc_version, java_version: $java_version}'
+          done | jq -cs '{include: .}' | sed 's/^/matrix=/' >> "$GITHUB_OUTPUT"
+
   build:
+    needs: versions
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.versions.outputs.matrix) }}
     uses: ./.github/workflows/reusable-build.yml
     with:
       upload_artifact: true
-      artifact_name: preview-jars
-      build_all_versions: true
+      artifact_name: preview-jars-${{ matrix.mc_version }}
+      mc_version: ${{ matrix.mc_version }}
+      java_version: ${{ matrix.java_version }}
 
   preview:
     runs-on: ubuntu-latest
@@ -28,7 +52,8 @@ jobs:
       - name: Download build jars
         uses: actions/download-artifact@v4
         with:
-          name: preview-jars
+          pattern: preview-jars-*
+          merge-multiple: true
           path: dist
 
       - name: Move preview tag

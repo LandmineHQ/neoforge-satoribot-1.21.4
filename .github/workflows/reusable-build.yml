@@ -28,11 +28,11 @@ on:
         required: false
         type: string
         default: ""
-      build_all_versions:
-        description: Whether to build every versionProperties/*.properties target.
+      java_version:
+        description: JDK version used for this Minecraft target.
         required: false
-        type: boolean
-        default: false
+        type: string
+        default: "21"
 
 jobs:
   build:
@@ -44,10 +44,10 @@ jobs:
           fetch-depth: ${{ inputs.fetch_depth }}
           fetch-tags: ${{ inputs.fetch_tags }}
 
-      - name: Setup JDK 21
+      - name: Setup target JDK
         uses: actions/setup-java@v4
         with:
-          java-version: "21"
+          java-version: ${{ inputs.java_version }}
           distribution: "temurin"
 
       - name: Setup Gradle
@@ -56,12 +56,7 @@ jobs:
       - name: Make Gradle wrapper executable
         run: chmod +x ./gradlew
 
-      - name: Build all Minecraft versions
-        if: ${{ inputs.build_all_versions }}
-        run: ./gradlew buildAllVersions --no-daemon
-
       - name: Build selected Minecraft version
-        if: ${{ ! inputs.build_all_versions }}
         shell: bash
         run: |
           if [[ -n "${{ inputs.mc_version }}" ]]; then

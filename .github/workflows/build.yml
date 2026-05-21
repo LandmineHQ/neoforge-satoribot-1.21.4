@@ -1,11 +1,39 @@
 name: Build
 
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
 
 jobs:
+  versions:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.versions.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Discover Minecraft versions
+        id: versions
+        shell: bash
+        run: |
+          mapfile -t files < <(find versionProperties -maxdepth 1 -type f -name '*.properties' ! -name '_*' | sort -V)
+          for file in "${files[@]}"; do
+            mc_version="$(basename "$file" .properties)"
+            java_version="$(awk -F= '$1 == "java_version" { gsub(/[[:space:]]/, "", $2); print $2 }' "$file")"
+            jq -cn --arg mc_version "$mc_version" --arg java_version "${java_version:-21}" '{mc_version: $mc_version, java_version: $java_version}'
+          done | jq -cs '{include: .}' | sed 's/^/matrix=/' >> "$GITHUB_OUTPUT"
+
   build:
+    needs: versions
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.versions.outputs.matrix) }}
     uses: ./.github/workflows/reusable-build.yml
     with:
       fetch_depth: 0
       fetch_tags: true
-      build_all_versions: true
+      mc_version: ${{ matrix.mc_version }}
+      java_version: ${{ matrix.java_version }}

@@ -168,35 +168,6 @@ tasks.withType(ProcessResources).configureEach {
     }
 }
 
-def buildVersionTasks = []
-TaskProvider previousBuildVersionTask = null
-supportedMcVersions.each { versionName ->
-    def taskSuffix = versionName.replaceAll(/[^A-Za-z0-9]/, '_')
-    def buildVersionTask = tasks.register("buildMc${taskSuffix}", Exec) {
-        group = 'build'
-        description = "Builds SatoriBot for Minecraft ${versionName}."
-        workingDir = projectDir
-        executable = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
-                ? "${projectDir}/gradlew.bat"
-                : "${projectDir}/gradlew"
-        args 'build', '--no-daemon', "-PmcVer=${versionName}"
-    }
-    def precedingBuildVersionTask = previousBuildVersionTask
-    if (precedingBuildVersionTask != null) {
-        buildVersionTask.configure {
-            dependsOn precedingBuildVersionTask
-        }
-    }
-    buildVersionTasks.add(buildVersionTask)
-    previousBuildVersionTask = buildVersionTask
-}
-
-tasks.register('buildAllVersions') {
-    group = 'build'
-    description = 'Builds every Minecraft version declared in versionProperties/*.properties.'
-    dependsOn buildVersionTasks
-}
-
 tasks.register('printSelectedMinecraftVersion') {
     group = 'help'
     description = 'Prints the Minecraft and NeoForge versions selected for this Gradle invocation.'

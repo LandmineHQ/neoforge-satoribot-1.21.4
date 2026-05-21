@@ -65,7 +65,7 @@ Satori 消息会先检查是否为命令；命令消息不会再转发到 Minecr
 ## 运行要求
 
 - 默认构建目标：Minecraft `26.1.2`
-- 默认 NeoForge：`26.1.2.0-beta`
+- 默认 NeoForge：`26.1.2.59-beta`
 - 默认 Java：`25`
 - 其他版本目标按 `versionProperties/<version>.properties` 中的 `java_version` 配置
 - 可用的 Satori 服务端（提供 `ws(s)://.../v1/events` 与对应 HTTP API）
@@ -152,13 +152,7 @@ PowerShell 中建议给 `-P` 参数加引号，避免 bat 参数被拆分：
 .\gradlew.bat build "-PmcVer=<version>"
 ```
 
-构建 `versionProperties/*.properties` 中声明的所有版本：
-
-```bash
-./gradlew buildAllVersions
-```
-
-`buildAllVersions` 会逐个构建所有声明版本，耗时和资源占用较高。日常验证优先只构建当前修改影响到的目标版本。
+CI 会从 `versionProperties/*.properties` 自动生成版本矩阵，并行构建每个目标。日常本地验证优先只构建当前修改影响到的目标版本，不在 Gradle 中维护“一次性顺序构建全部版本”的任务。
 
 查看当前 Gradle 调用选中的版本：
 
@@ -229,10 +223,10 @@ runs/client
 
 ## GitHub Actions 工作流
 
-- `build.yml`：构建 `versionProperties/*.properties` 中声明的全部版本（push / pull_request）
-- `preview.yml`：构建 `main` 最新代码的全部版本并更新单一 Preview Release
-- `release.yml`：当推送 `vX.Y.Z` tag 时构建并发布正式 Release
-- `reusable-build.yml`：复用构建逻辑（供上述流程调用）
+- `build.yml`：在 pull request 和非 `main` push 中自动发现版本矩阵，并行构建每个目标版本
+- `preview.yml`：在 `main` push / 手动触发时并行构建版本矩阵，汇总产物后更新单一 Preview Release
+- `release.yml`：当推送 `vX.Y.Z` tag 时并行构建版本矩阵，汇总产物后发布正式 Release
+- `reusable-build.yml`：单版本构建子 workflow（由矩阵任务按 `mc_version` 调用）
 
 ## 协议文档
 
