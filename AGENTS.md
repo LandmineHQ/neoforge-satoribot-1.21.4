@@ -42,14 +42,14 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
 - `versionProperties/`
   - One properties file per supported Minecraft version.
   - Current targets:
-    - `26.1.2.properties`: default target, NeoForge `26.1.2.59-beta`, Java `25`.
-    - `1.21.11.properties`: NeoForge `21.11.42`, Java `21`.
-    - `1.21.4.properties`: legacy target, NeoForge `21.4.157`, Java `21`.
-    - `1.21.1.properties`: legacy target, NeoForge `21.1.230`, Java `21`.
+    - `26.1.2.properties`: default target, NeoForge `26.1.2.0-beta`, Java `25`.
+    - `1.21.11.properties`: NeoForge `21.11.0-beta`, Java `21`.
+    - `1.21.4.properties`: legacy target, NeoForge `21.4.0-beta`, Java `21`.
+    - `1.21.1.properties`: legacy target, NeoForge `21.1.1`, Java `21`.
   - Use `_template.properties` when adding another Minecraft version.
 - `build.gradle`
   - Reads `mcVer`, loads `versionProperties/<mcVer>.properties`, adds `src/loader/neoforge/common` plus the selected `src/versioned/<mcVer>` source set, and writes outputs to `build/<mcVer>/`.
-  - `buildAllVersions` runs supported versions sequentially through the Gradle wrapper to avoid NeoGradle parallel build conflicts.
+  - `buildAllVersions` runs supported versions sequentially through the Gradle wrapper to avoid NeoGradle parallel build conflicts, but it is expensive and should only be run when explicitly requested or when a broad shared change truly requires it.
 - `.github/workflows/`
   - CI, preview, and release workflows build all declared `versionProperties/*.properties` targets.
   - Uploaded artifacts keep their versioned build paths, so release and preview jobs should publish jars with recursive globs such as `dist/**/*.jar`.
@@ -75,6 +75,8 @@ Common commands:
 ```
 
 PowerShell users should quote `-PmcVer=...` arguments when invoking `gradlew.bat`.
+
+Prefer building only the Minecraft version targets affected by the current change. Do not run `buildAllVersions` by default because it is slow and resource-intensive; reserve it for explicit user requests or changes that cannot be validated safely with a smaller target set.
 
 Local testing follows the Distant Horizons-style Gradle task workflow. Do not maintain `.vscode/launch.json` as the project source of truth; `.vscode/` is local IDE state and is ignored by Git.
 
@@ -112,7 +114,7 @@ build/<mcVer>/libs/satoribot-neoforge-<mcVer>-<mod_version>.jar
   3. Copy `src/versioned/_template/java` or the closest existing version directory to `src/versioned/<mcVer>/java`.
   4. Implement or adjust `NeoForgeVersionAdapter`, `NeoForgeRelayConfig`, `NeoForgeMinecraftRelayBridge`, `SatoriBot`, and `SatoriBotClient` for the target version.
   5. Run `.\gradlew.bat build --no-daemon "-PmcVer=<mcVer>"`.
-  6. Run `.\gradlew.bat buildAllVersions --no-daemon` when the change can affect shared behavior.
+  6. Only run additional affected version targets when the change touches shared behavior; do not run the full matrix unless explicitly requested or truly necessary.
 - If a version API changes, patch only that version directory first. Move code into `src/loader/neoforge/common` only when it compiles cleanly for every supported selected NeoForge version and reduces real duplication.
 - If an older NeoForge line does not expose the `clientData` run type, set `supports_client_data_run=false` in its `versionProperties/<mcVer>.properties` file instead of removing the shared run configuration for newer versions.
 - For NeoForge 1.21.11 and 26.1.2, `HoverEvent` text hover uses `new HoverEvent.ShowText(...)`; older 1.21.1 and 1.21.4 code use the older `new HoverEvent(...)` form.

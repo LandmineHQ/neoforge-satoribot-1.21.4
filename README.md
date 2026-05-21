@@ -65,7 +65,7 @@ Satori 消息会先检查是否为命令；命令消息不会再转发到 Minecr
 ## 运行要求
 
 - 默认构建目标：Minecraft `26.1.2`
-- 默认 NeoForge：`26.1.2.59-beta`
+- 默认 NeoForge：`26.1.2.0-beta`
 - 默认 Java：`25`
 - 其他版本目标按 `versionProperties/<version>.properties` 中的 `java_version` 配置
 - 可用的 Satori 服务端（提供 `ws(s)://.../v1/events` 与对应 HTTP API）
@@ -157,6 +157,8 @@ PowerShell 中建议给 `-P` 参数加引号，避免 bat 参数被拆分：
 ```bash
 ./gradlew buildAllVersions
 ```
+
+`buildAllVersions` 会逐个构建所有声明版本，耗时和资源占用较高。日常验证优先只构建当前修改影响到的目标版本。
 
 查看当前 Gradle 调用选中的版本：
 
