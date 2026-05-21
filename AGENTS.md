@@ -45,6 +45,7 @@ SatoriBot is a NeoForge Minecraft mod that bridges Minecraft server chat and Sat
     - `26.1.2.properties`: default target, NeoForge `26.1.2.59-beta`, Java `25`.
     - `1.21.11.properties`: NeoForge `21.11.42`, Java `21`.
     - `1.21.4.properties`: legacy target, NeoForge `21.4.157`, Java `21`.
+    - `1.21.1.properties`: legacy target, NeoForge `21.1.230`, Java `21`.
   - Use `_template.properties` when adding another Minecraft version.
 - `build.gradle`
   - Reads `mcVer`, loads `versionProperties/<mcVer>.properties`, adds `src/loader/neoforge/common` plus the selected `src/versioned/<mcVer>` source set, and writes outputs to `build/<mcVer>/`.
@@ -69,6 +70,7 @@ Common commands:
 .\gradlew.bat build --no-daemon "-PmcVer=26.1.2"
 .\gradlew.bat build --no-daemon "-PmcVer=1.21.11"
 .\gradlew.bat build --no-daemon "-PmcVer=1.21.4"
+.\gradlew.bat build --no-daemon "-PmcVer=1.21.1"
 .\gradlew.bat buildAllVersions --no-daemon
 ```
 
@@ -85,6 +87,8 @@ Local testing follows the Distant Horizons-style Gradle task workflow. Do not ma
 .\gradlew.bat runClient --no-daemon "-PmcVer=1.21.11"
 .\gradlew.bat runServer --no-daemon "-PmcVer=1.21.4"
 .\gradlew.bat runClient --no-daemon "-PmcVer=1.21.4"
+.\gradlew.bat runServer --no-daemon "-PmcVer=1.21.1"
+.\gradlew.bat runClient --no-daemon "-PmcVer=1.21.1"
 ```
 
 The run directories are `runs/server` and `runs/client`. IDE launch configurations may be regenerated locally from Gradle, but avoid committing or hand-maintaining them.
@@ -110,8 +114,9 @@ build/<mcVer>/libs/satoribot-neoforge-<mcVer>-<mod_version>.jar
   5. Run `.\gradlew.bat build --no-daemon "-PmcVer=<mcVer>"`.
   6. Run `.\gradlew.bat buildAllVersions --no-daemon` when the change can affect shared behavior.
 - If a version API changes, patch only that version directory first. Move code into `src/loader/neoforge/common` only when it compiles cleanly for every supported selected NeoForge version and reduces real duplication.
-- For NeoForge 1.21.11 and 26.1.2, `HoverEvent` text hover uses `new HoverEvent.ShowText(...)`; older 1.21.4 code uses the older `new HoverEvent(...)` form.
-- For NeoForge 1.21.11 and 26.1.2, the old built-in `net.neoforged.neoforge.client.gui.ConfigurationScreen` / `IConfigScreenFactory` API is not used by this project. Keep `SatoriBotClient` present for client lifecycle wiring, but do not copy the 1.21.4 config screen registration unless a replacement API or dependency is added.
+- If an older NeoForge line does not expose the `clientData` run type, set `supports_client_data_run=false` in its `versionProperties/<mcVer>.properties` file instead of removing the shared run configuration for newer versions.
+- For NeoForge 1.21.11 and 26.1.2, `HoverEvent` text hover uses `new HoverEvent.ShowText(...)`; older 1.21.1 and 1.21.4 code use the older `new HoverEvent(...)` form.
+- For NeoForge 1.21.11 and 26.1.2, the old built-in `net.neoforged.neoforge.client.gui.ConfigurationScreen` / `IConfigScreenFactory` API is not used by this project. Keep `SatoriBotClient` present for client lifecycle wiring, but do not copy the 1.21.1 / 1.21.4 config screen registration unless a replacement API or dependency is added.
 
 ## Documentation And Agent Maintenance
 

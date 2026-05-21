@@ -119,6 +119,9 @@ src/main/resources/               # 通用资源
 src/loader/neoforge/common/java   # NeoForge loader 侧共享运行时
 src/versioned/_template/java      # 新增版本时可复制的 Java 模板
 versionProperties/26.1.2.properties
+versionProperties/1.21.11.properties
+versionProperties/1.21.4.properties
+versionProperties/1.21.1.properties
 versionProperties/<version>.properties
 versionProperties/_template.properties
 src/versioned/<version>/java      # 版本专属 Java 适配代码
@@ -182,7 +185,8 @@ build/<version>/libs/
 2. 填入该版本对应的 `minecraft_version`、`neo_version`、`java_version` 等字段
 3. 复制 `src/versioned/_template/java` 到 `src/versioned/<version>/java`，或从最接近的已有版本复制
 4. 让该版本的 `NeoForgeVersionAdapter` 实现 `NeoForgeRuntimeAdapter`，并按需调整 HoverEvent、客户端配置入口等版本差异
-5. 执行 `./gradlew build -PmcVer=<version>` 验证
+5. 如果该 NeoForge 线没有 `clientData` run type，在版本属性中设置 `supports_client_data_run=false`
+6. 执行 `./gradlew build -PmcVer=<version>` 验证
 
 ## 构建与开发运行
 

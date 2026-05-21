@@ -49,6 +49,7 @@ def loaderVersionRange = requireVersionProperty('loader_version_range')
 def javaVersion = requireVersionProperty('java_version').toInteger()
 def parchmentMinecraftVersion = optionalVersionProperty('parchment_minecraft_version', minecraftVersion)
 def parchmentMappingsVersion = optionalVersionProperty('parchment_mappings_version', '')
+def supportsClientDataRun = optionalVersionProperty('supports_client_data_run', 'true').toBoolean()
 
 def exportedProperties = [
         selected_mc_version        : selectedMcVer,
@@ -132,10 +133,12 @@ runs {
         systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
     }
 
-    clientData {
-        arguments.addAll '--mod', project.mod_id, '--all', '--output',
-                file('src/generated/resources/').getAbsolutePath(), '--existing',
-                file('src/main/resources/').getAbsolutePath()
+    if (supportsClientDataRun) {
+        clientData {
+            arguments.addAll '--mod', project.mod_id, '--all', '--output',
+                    file('src/generated/resources/').getAbsolutePath(), '--existing',
+                    file('src/main/resources/').getAbsolutePath()
+        }
     }
 }
 

@@ -11,6 +11,7 @@ src/loader/neoforge/common/java/
 src/versioned/_template/java/
 src/versioned/1.21.11/java/
 src/versioned/1.21.4/java/
+src/versioned/1.21.1/java/
 src/versioned/1.21.4/resources/
 src/versioned/1.20.1/java/
 src/versioned/1.20.1/resources/
